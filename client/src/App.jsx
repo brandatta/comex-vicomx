@@ -8,17 +8,21 @@ export default function App() {
 
   return (
     <Box sx={{ maxWidth: 1120, mx: "auto", px: 2, pb: 8 }}>
-      {/* Header grande */}
+      {/* Header (más chico) */}
       <Typography
         variant="h1"
         sx={{
           mb: 1,
+          fontSize: { xs: 22, sm: 26, md: 30 },
+          lineHeight: 1.2,
+          fontWeight: 800,
+          letterSpacing: "-0.02em",
         }}
       >
         Pedidos COMEX
       </Typography>
 
-      {/* Tabs con underline rojo */}
+      {/* Tabs con underline */}
       <Box sx={{ borderBottom: "1px solid #e5e7eb", mb: 2 }}>
         <Tabs
           value={tab}
@@ -26,10 +30,11 @@ export default function App() {
           textColor="inherit"
           indicatorColor="primary"
           sx={{
-            minHeight: 44,
+            minHeight: 40,
             "& .MuiTab-root": {
               textTransform: "none",
-              minHeight: 44,
+              minHeight: 40,
+              py: 0.5,
               fontWeight: 600,
               color: "text.secondary",
             },
@@ -45,9 +50,7 @@ export default function App() {
       </Box>
 
       {/* Contenido */}
-      <Box mt={2}>
-        {tab === 0 ? <NuevoPedido /> : <Pedidos />}
-      </Box>
+      <Box mt={2}>{tab === 0 ? <NuevoPedido /> : <Pedidos />}</Box>
     </Box>
   );
 }
