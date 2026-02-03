@@ -23,7 +23,7 @@ export default function NuevoPedido() {
   const [success, setSuccess] = React.useState("");
   const [created, setCreated] = React.useState([]);
 
-  // --- DENSE UI (mitad de alto aprox) ---
+  // DENSE UI
   const denseTextFieldSx = {
     "& .MuiInputBase-root": { height: 40 },
     "& .MuiInputBase-input": { py: 0.5 },
@@ -92,13 +92,7 @@ export default function NuevoPedido() {
     { field: "PROVEEDOR", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 280 },
     { field: "ITEMS", headerName: "ITEMS", flex: 1, minWidth: 110 },
-    {
-      field: "CANTIDAD_TOTAL",
-      headerName: "CANTIDAD_TOTAL",
-      flex: 1,
-      minWidth: 160,
-      valueFormatter: (p) => toInt(p.value),
-    },
+    { field: "CANTIDAD_TOTAL", headerName: "CANTIDAD_TOTAL", flex: 1, minWidth: 160, valueFormatter: (p) => toInt(p.value) },
     { field: "ST_USD", headerName: "ST_USD", flex: 1, minWidth: 140, valueFormatter: (p) => toMoney(p.value) },
   ];
 
@@ -165,7 +159,7 @@ export default function NuevoPedido() {
       ) : null}
 
       {preview?.merged?.length ? (
-        <SectionCard title="Vista Previa">
+        <SectionCard title="Vista Previa" subtitle="Revisá los ítems y sus valores antes de generar.">
           <DataGrid
             autoHeight
             rowHeight={38}
@@ -179,7 +173,7 @@ export default function NuevoPedido() {
       ) : null}
 
       {preview?.resumen?.length ? (
-        <SectionCard title="Pedidos a Generar en vicomx">
+        <SectionCard title="Pedidos a Generar en vicomx" subtitle="Si está todo OK, generá los pedidos al final de la sección.">
           <DataGrid
             autoHeight
             rowHeight={38}
@@ -190,7 +184,7 @@ export default function NuevoPedido() {
             initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           />
 
-          {/* Botón abajo de la sección */}
+          {/* BOTÓN ABAJO */}
           <Box mt={2} display="flex" justifyContent="flex-end">
             <Button
               variant="contained"
@@ -228,4 +222,3 @@ export default function NuevoPedido() {
     </Box>
   );
 }
-
