@@ -38,7 +38,7 @@ function parseNum(v) {
   const hasDot = s.includes(".");
 
   if (hasComma && hasDot) {
-    // si tiene ambos, el separador decimal es el último de los dos
+    // el separador decimal es el último de los dos
     const lastComma = s.lastIndexOf(",");
     const lastDot = s.lastIndexOf(".");
     const decIsComma = lastComma > lastDot;
@@ -58,37 +58,33 @@ function parseNum(v) {
     } else {
       s = s.replace(/,/g, "");
     }
-  } else {
-    // sólo punto o ninguno: mantenemos el punto como decimal
   }
 
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
 
-function money(n) {
-  const x = parseNum(n);
+function money(v) {
+  const x = parseNum(v);
   return x === null
     ? "—"
-    : x.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+    : x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/**
- * Cantidad:
- * - NO redondea a entero
- * - Muestra hasta 3 decimales, y si es entero, muestra 0 decimales
- */
-function qtyf(n) {
-  const x = parseNum(n);
+function qtyf(v) {
+  const x = parseNum(v);
   if (x === null) return "—";
   const isInt = Math.abs(x - Math.round(x)) < 1e-9;
   return x.toLocaleString(undefined, {
     minimumFractionDigits: isInt ? 0 : 0,
     maximumFractionDigits: isInt ? 0 : 3,
   });
+}
+
+function numForSort(v) {
+  const x = parseNum(v);
+  // nulls al final
+  return x === null ? Number.POSITIVE_INFINITY : x;
 }
 
 export default function Pedidos() {
@@ -123,10 +119,7 @@ export default function Pedidos() {
       .filter((r) => r.proveedor === prov.proveedor)
       .map((r) => {
         const estado = r.estado_texto || "(sin estado)";
-        return {
-          ...r,
-          label: `${r.pedido} | ${estado} | ${String(r.last_ts)}`,
-        };
+        return { ...r, label: `${r.pedido} | ${estado} | ${String(r.last_ts)}` };
       });
   }, [index, provLabel, proveedores]);
 
@@ -158,7 +151,6 @@ export default function Pedidos() {
       setEstados(estadosRows);
       setIndex(iRes.data.index || []);
 
-      // default proveedor
       if ((iRes.data.index || []).length && !provLabel) {
         const map = new Map();
         for (const r of iRes.data.index || []) {
@@ -183,16 +175,15 @@ export default function Pedidos() {
         api.get(`/pedidos/${encodeURIComponent(pedido)}/lines`),
       ]);
 
-      const trazRows = tRes.data.trazabilidad || [];
-      setTraz(trazRows);
+      setTraz(tRes.data.trazabilidad || []);
 
+      // ✅ guardo RAW (string o number) y formateo en renderCell
       const raw = lRes.data.lines || [];
       const ui = raw.map((r) => ({
         ITEM: Number(r.ITEM),
         COD_ALFA: r.COD_ALFA,
-        // guardamos como number (si parsea) para que el grid no “invente” 0
-        CANTIDAD: parseNum(r.CANTIDAD),
-        PRECIO: parseNum(r.PRECIO),
+        CANTIDAD: r.CANTIDAD, // raw
+        PRECIO: r.PRECIO,     // raw
         "RAZON SOCIAL": r.rs,
       }));
       setLinesUi(ui);
@@ -224,19 +215,24 @@ export default function Pedidos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedidoSel]);
 
-  // ✅ CLAVE: sacamos type:"number" y usamos valueGetter/valueParser para que no caiga a 0
   const colsLines = [
     { field: "ITEM", headerName: "ITEM", width: 80 },
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 140 },
+
     {
       field: "CANTIDAD",
       headerName: "CANTIDAD",
       flex: 1,
       minWidth: 120,
       editable: true,
-      valueGetter: (params) => parseNum(params.row?.CANTIDAD),
-      valueParser: (value) => parseNum(value),
-      valueFormatter: (p) => qtyf(p.value),
+      // ✅ muestra lo correcto sin “inventar 0”
+      renderCell: (params) => qtyf(params.row?.CANTIDAD),
+      // ✅ orden numérico aunque sea string
+      sortComparator: (a, b, p1, p2) => {
+        const n1 = numForSort(p1?.row?.CANTIDAD);
+        const n2 = numForSort(p2?.row?.CANTIDAD);
+        return n1 - n2;
+      },
     },
     {
       field: "PRECIO",
@@ -244,10 +240,14 @@ export default function Pedidos() {
       flex: 1,
       minWidth: 120,
       editable: true,
-      valueGetter: (params) => parseNum(params.row?.PRECIO),
-      valueParser: (value) => parseNum(value),
-      valueFormatter: (p) => money(p.value),
+      renderCell: (params) => money(params.row?.PRECIO),
+      sortComparator: (a, b, p1, p2) => {
+        const n1 = numForSort(p1?.row?.PRECIO);
+        const n2 = numForSort(p2?.row?.PRECIO);
+        return n1 - n2;
+      },
     },
+
     { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 220 },
   ];
 
@@ -274,10 +274,10 @@ export default function Pedidos() {
     setInfo("");
     if (!pedidoSel) return;
 
+    // ✅ validamos parseables y >0
     for (const r of linesUi) {
       const c = parseNum(r.CANTIDAD);
       const p = parseNum(r.PRECIO);
-
       if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) {
         setError("Valores inválidos (cantidad/precio deben ser numéricos y > 0).");
         return;
@@ -429,7 +429,7 @@ export default function Pedidos() {
 
       <SectionCard
         title="Líneas del pedido"
-        subtitle="Podés editar CANTIDAD y PRECIO (doble clic en la celda). Luego guardá los cambios."
+        subtitle="Podés editar CANTIDAD y PRECIO (doble clic). Luego guardá los cambios."
         footer={
           <>
             <Button
@@ -454,6 +454,7 @@ export default function Pedidos() {
           columns={colsLines}
           disableRowSelectionOnClick
           processRowUpdate={(newRow) => {
+            // ✅ mantengo raw values editados
             setLinesUi((prev) => prev.map((r) => (r.ITEM === newRow.ITEM ? newRow : r)));
             return newRow;
           }}
@@ -463,7 +464,12 @@ export default function Pedidos() {
         />
 
         <Box mt={1.25}>
-          <MetricsRow leftLabel="Cantidad Total" leftValue={qtyf(totals.qty)} rightLabel="ST USD" rightValue={money(totals.st)} />
+          <MetricsRow
+            leftLabel="Cantidad Total"
+            leftValue={qtyf(totals.qty)}
+            rightLabel="ST USD"
+            rightValue={money(totals.st)}
+          />
         </Box>
       </SectionCard>
 
