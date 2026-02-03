@@ -7,40 +7,38 @@ export default function App() {
   const [tab, setTab] = React.useState(0);
 
   return (
-    <Box sx={{ maxWidth: 1120, mx: "auto", px: 2, pb: 8 }}>
-      {/* Header (más chico) */}
+    <Box sx={{ maxWidth: 1120, mx: "auto", px: 2, pb: 6 }}>
       <Typography
-        variant="h1"
+        variant="h5"
         sx={{
           mb: 1,
-          fontSize: { xs: 22, sm: 26, md: 30 },
-          lineHeight: 1.2,
           fontWeight: 800,
           letterSpacing: "-0.02em",
+          lineHeight: 1.1,
         }}
       >
         Pedidos COMEX
       </Typography>
 
-      {/* Tabs con underline */}
-      <Box sx={{ borderBottom: "1px solid #e5e7eb", mb: 2 }}>
+      <Box sx={{ borderBottom: "1px solid #e5e7eb", mb: 1.5 }}>
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
           textColor="inherit"
           indicatorColor="primary"
           sx={{
-            minHeight: 40,
+            minHeight: 36,
             "& .MuiTab-root": {
               textTransform: "none",
-              minHeight: 40,
+              minHeight: 36,
               py: 0.5,
+              fontSize: 13,
               fontWeight: 600,
               color: "text.secondary",
             },
             "& .Mui-selected": {
               color: "primary.main",
-              fontWeight: 700,
+              fontWeight: 800,
             },
           }}
         >
@@ -49,8 +47,9 @@ export default function App() {
         </Tabs>
       </Box>
 
-      {/* Contenido */}
-      <Box mt={2}>{tab === 0 ? <NuevoPedido /> : <Pedidos />}</Box>
+      <Box mt={1.5}>
+        {tab === 0 ? <NuevoPedido /> : <Pedidos />}
+      </Box>
     </Box>
   );
 }
