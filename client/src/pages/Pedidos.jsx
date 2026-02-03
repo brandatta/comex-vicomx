@@ -78,7 +78,7 @@ function money(n) {
 
 /**
  * Cantidad:
- * - NO redondea a entero (ese era el motivo de los "0")
+ * - NO redondea a entero
  * - Muestra hasta 3 decimales, y si es entero, muestra 0 decimales
  */
 function qtyf(n) {
@@ -198,8 +198,7 @@ export default function Pedidos() {
       setLinesUi(ui);
 
       const estadosTextos = (estados || []).map((x) => x.estado);
-      const def =
-        estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
+      const def = estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
       setNewEstado(def);
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || "Error cargando pedido");
@@ -225,25 +224,28 @@ export default function Pedidos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedidoSel]);
 
+  // ✅ CLAVE: sacamos type:"number" y usamos valueGetter/valueParser para que no caiga a 0
   const colsLines = [
     { field: "ITEM", headerName: "ITEM", width: 80 },
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 140 },
     {
       field: "CANTIDAD",
       headerName: "CANTIDAD",
-      type: "number",
       flex: 1,
       minWidth: 120,
       editable: true,
+      valueGetter: (params) => parseNum(params.row?.CANTIDAD),
+      valueParser: (value) => parseNum(value),
       valueFormatter: (p) => qtyf(p.value),
     },
     {
       field: "PRECIO",
       headerName: "PRECIO",
-      type: "number",
       flex: 1,
       minWidth: 120,
       editable: true,
+      valueGetter: (params) => parseNum(params.row?.PRECIO),
+      valueParser: (value) => parseNum(value),
       valueFormatter: (p) => money(p.value),
     },
     { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 220 },
@@ -258,13 +260,12 @@ export default function Pedidos() {
   ];
 
   const totals = React.useMemo(() => {
-    const imp = (linesUi || []).map((r) => {
-      const c = parseNum(r.CANTIDAD);
-      const p = parseNum(r.PRECIO);
-      return (c ?? 0) * (p ?? 0);
-    });
     const qty = (linesUi || []).reduce((a, r) => a + (parseNum(r.CANTIDAD) ?? 0), 0);
-    const st = imp.reduce((a, x) => a + x, 0);
+    const st = (linesUi || []).reduce((a, r) => {
+      const c = parseNum(r.CANTIDAD) ?? 0;
+      const p = parseNum(r.PRECIO) ?? 0;
+      return a + c * p;
+    }, 0);
     return { qty, st };
   }, [linesUi]);
 
@@ -385,7 +386,10 @@ export default function Pedidos() {
           {info ? <Alert severity="info">{info}</Alert> : null}
           {prov ? (
             <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
-              Proveedor seleccionado: <b>{prov.proveedor} - {prov.rs}</b>
+              Proveedor seleccionado:{" "}
+              <b>
+                {prov.proveedor} - {prov.rs}
+              </b>
             </Typography>
           ) : null}
         </Box>
@@ -459,12 +463,7 @@ export default function Pedidos() {
         />
 
         <Box mt={1.25}>
-          <MetricsRow
-            leftLabel="Cantidad Total"
-            leftValue={qtyf(totals.qty)}
-            rightLabel="ST USD"
-            rightValue={money(totals.st)}
-          />
+          <MetricsRow leftLabel="Cantidad Total" leftValue={qtyf(totals.qty)} rightLabel="ST USD" rightValue={money(totals.st)} />
         </Box>
       </SectionCard>
 
@@ -477,12 +476,7 @@ export default function Pedidos() {
           </Button>
         }
       >
-        <Box
-          display="grid"
-          gridTemplateColumns={{ xs: "1fr", md: "3fr 1fr" }}
-          gap={1.25}
-          alignItems="end"
-        >
+        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "3fr 1fr" }} gap={1.25} alignItems="end">
           <TextField
             size="small"
             select
