@@ -7,7 +7,15 @@ export default function App() {
   const [tab, setTab] = React.useState(0);
 
   return (
-    <Box sx={{ maxWidth: 1120, mx: "auto", px: 2, pb: 6 }}>
+    <Box
+      sx={{
+        maxWidth: 1120,
+        mx: "auto",
+        px: 2,
+        pb: 6,
+        pt: 4,   // ⬅️ más espacio arriba
+      }}
+    >
       <Typography
         variant="h5"
         sx={{
