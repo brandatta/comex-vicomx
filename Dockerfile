@@ -12,15 +12,13 @@ RUN npm run build
 
 
 # -------------------------
-# 2) Build SERVER (Node/Express)
+# 2) SERVER deps (prod only)
 # -------------------------
-FROM node:20-alpine AS server-build
+FROM node:20-alpine AS server-deps
 WORKDIR /app/server
 
 COPY server/package.json server/package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
-
-COPY server/ ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-audit --no-fund; fi
 
 
 # -------------------------
@@ -32,13 +30,18 @@ ENV PORT=8080
 
 WORKDIR /app/server
 
-# instalar deps prod del server
+# deps prod
+COPY --from=server-deps /app/server/node_modules ./node_modules
 COPY server/package.json server/package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-audit --no-fund; fi
 
-# copiar server y frontend build
-COPY --from=server-build /app/server /app/server
-COPY --from=client-build /app/client/dist /app/server/public
+# código del server (sin pisar node_modules)
+COPY server/ ./
+
+# frontend build
+RUN mkdir -p ./public
+COPY --from=client-build /app/client/dist ./public
 
 EXPOSE 8080
+
+# tu package.json usa: "start": "node src/index.js"
 CMD ["npm", "start"]
