@@ -23,6 +23,19 @@ export default function NuevoPedido() {
   const [success, setSuccess] = React.useState("");
   const [created, setCreated] = React.useState([]);
 
+  // --- DENSE UI (mitad de alto aprox) ---
+  const denseTextFieldSx = {
+    "& .MuiInputBase-root": { height: 40 },
+    "& .MuiInputBase-input": { py: 0.5 },
+  };
+  const denseButtonSx = { height: 38, px: 1.5 };
+  const denseGridSx = {
+    "& .MuiDataGrid-columnHeaders": { minHeight: 38, maxHeight: 38 },
+    "& .MuiDataGrid-row": { maxHeight: 38 },
+    "& .MuiDataGrid-cell": { py: 0.5 },
+    "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+  };
+
   async function onPreview(f) {
     setError("");
     setSuccess("");
@@ -79,22 +92,41 @@ export default function NuevoPedido() {
     { field: "PROVEEDOR", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 280 },
     { field: "ITEMS", headerName: "ITEMS", flex: 1, minWidth: 110 },
-    { field: "CANTIDAD_TOTAL", headerName: "CANTIDAD_TOTAL", flex: 1, minWidth: 160, valueFormatter: (p) => toInt(p.value) },
+    {
+      field: "CANTIDAD_TOTAL",
+      headerName: "CANTIDAD_TOTAL",
+      flex: 1,
+      minWidth: 160,
+      valueFormatter: (p) => toInt(p.value),
+    },
     { field: "ST_USD", headerName: "ST_USD", flex: 1, minWidth: 140, valueFormatter: (p) => toMoney(p.value) },
   ];
 
   return (
     <Box>
       <SectionCard title="Carga de planilla" subtitle="Seleccioná el Excel y validamos columnas y valores.">
-        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2}>
-          <TextField label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} />
+        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2} alignItems="center">
+          <TextField
+            label="Usuario"
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            sx={denseTextFieldSx}
+          />
+
           <Button
             variant="outlined"
             component="label"
-            sx={{ justifyContent: "space-between" }}
+            sx={{
+              ...denseButtonSx,
+              justifyContent: "space-between",
+              textTransform: "none",
+              width: "100%",
+            }}
             disabled={loading}
           >
-            {file ? `Archivo: ${file.name}` : "Seleccionar planilla Excel (.xlsx)"}
+            <Box sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", pr: 1 }}>
+              {file ? `Archivo: ${file.name}` : "Seleccionar planilla Excel (.xlsx)"}
+            </Box>
             <input
               hidden
               type="file"
@@ -122,6 +154,8 @@ export default function NuevoPedido() {
           </Alert>
           <DataGrid
             autoHeight
+            rowHeight={38}
+            sx={denseGridSx}
             rows={preview.sin.map((r, i) => ({ id: i, ...r }))}
             columns={[{ field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 160 }]}
             pageSizeOptions={[25, 50, 100]}
@@ -134,6 +168,8 @@ export default function NuevoPedido() {
         <SectionCard title="Vista Previa">
           <DataGrid
             autoHeight
+            rowHeight={38}
+            sx={denseGridSx}
             rows={preview.merged.map((r, i) => ({ id: i, ...r }))}
             columns={mergedCols}
             pageSizeOptions={[25, 50, 100]}
@@ -143,25 +179,28 @@ export default function NuevoPedido() {
       ) : null}
 
       {preview?.resumen?.length ? (
-        <SectionCard
-          title="Pedidos a Generar en vicomx"
-          actions={
-            <Button
-              variant="contained"
-              onClick={onGenerate}
-              disabled={loading || !file || !!preview?.sin?.length}
-            >
-              Generar en vicomx
-            </Button>
-          }
-        >
+        <SectionCard title="Pedidos a Generar en vicomx">
           <DataGrid
             autoHeight
+            rowHeight={38}
+            sx={denseGridSx}
             rows={preview.resumen.map((r, i) => ({ id: i, ...r }))}
             columns={resumenCols}
             pageSizeOptions={[25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           />
+
+          {/* Botón abajo de la sección */}
+          <Box mt={2} display="flex" justifyContent="flex-end">
+            <Button
+              variant="contained"
+              onClick={onGenerate}
+              disabled={loading || !file || !!preview?.sin?.length}
+              sx={denseButtonSx}
+            >
+              Generar en vicomx
+            </Button>
+          </Box>
 
           {created?.length ? (
             <Box mt={2}>
@@ -170,6 +209,8 @@ export default function NuevoPedido() {
               </Typography>
               <DataGrid
                 autoHeight
+                rowHeight={38}
+                sx={denseGridSx}
                 rows={created.map((r, i) => ({ id: i, ...r }))}
                 columns={[
                   { field: "PEDIDO", headerName: "PEDIDO", flex: 2, minWidth: 240 },
@@ -187,3 +228,4 @@ export default function NuevoPedido() {
     </Box>
   );
 }
+
