@@ -44,6 +44,19 @@ export default function Pedidos() {
 
   const [newEstado, setNewEstado] = React.useState("");
 
+  // --- DENSE UI (mitad de alto aprox) ---
+  const denseTextFieldSx = {
+    "& .MuiInputBase-root": { height: 40 },
+    "& .MuiInputBase-input": { py: 0.5 },
+  };
+  const denseButtonSx = { height: 38, px: 1.5 };
+  const denseGridSx = {
+    "& .MuiDataGrid-columnHeaders": { minHeight: 38, maxHeight: 38 },
+    "& .MuiDataGrid-row": { maxHeight: 38 },
+    "& .MuiDataGrid-cell": { py: 0.5 },
+    "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
+  };
+
   const proveedores = React.useMemo(() => {
     const map = new Map();
     for (const r of index) {
@@ -56,13 +69,12 @@ export default function Pedidos() {
   const pedidosDelProveedor = React.useMemo(() => {
     const prov = proveedores.find((p) => p.label === provLabel);
     if (!prov) return [];
-    const rows = index.filter((r) => r.proveedor === prov.proveedor).map((r) => {
-      const estado = r.estado_texto || "(sin estado)";
-      return {
-        ...r,
-        label: `${r.pedido} | ${estado} | ${String(r.last_ts)}`,
-      };
-    });
+    const rows = index
+      .filter((r) => r.proveedor === prov.proveedor)
+      .map((r) => {
+        const estado = r.estado_texto || "(sin estado)";
+        return { ...r, label: `${r.pedido} | ${estado} | ${String(r.last_ts)}` };
+      });
     return rows;
   }, [index, provLabel, proveedores]);
 
@@ -86,15 +98,17 @@ export default function Pedidos() {
         api.get("/estados"),
         api.get("/pedidos/index", { params: { limit: 2000 } }),
       ]);
+
       const estadosRows = eRes.data.estados || [];
       if (!estadosRows.length) {
         setError("La tabla comex_estados no tiene registros.");
         return;
       }
+
       setEstados(estadosRows);
       setIndex(iRes.data.index || []);
 
-      // defaults
+      // defaults proveedor
       const provs = (() => {
         const map = new Map();
         for (const r of iRes.data.index || []) {
@@ -152,7 +166,6 @@ export default function Pedidos() {
   }, []);
 
   React.useEffect(() => {
-    // al cambiar proveedor, default pedido
     if (!pedidosDelProveedor.length) {
       setPedidoLabel("");
       return;
@@ -211,9 +224,13 @@ export default function Pedidos() {
 
     if (!pedidoSel) return;
 
-    // validar > 0
     for (const r of linesUi) {
-      if (!Number.isFinite(Number(r.CANTIDAD)) || !Number.isFinite(Number(r.PRECIO)) || Number(r.CANTIDAD) <= 0 || Number(r.PRECIO) <= 0) {
+      if (
+        !Number.isFinite(Number(r.CANTIDAD)) ||
+        !Number.isFinite(Number(r.PRECIO)) ||
+        Number(r.CANTIDAD) <= 0 ||
+        Number(r.PRECIO) <= 0
+      ) {
         setError("Valores inválidos (cantidad/precio deben ser numéricos y > 0).");
         return;
       }
@@ -254,7 +271,6 @@ export default function Pedidos() {
         usr: user.trim(),
       });
       setInfo(`'${newEstado}' registrado en vicomx`);
-      // recargar index + pedido (para que cambie label)
       await loadBase();
       await loadPedido(pedidoSel);
     } catch (e) {
@@ -269,7 +285,12 @@ export default function Pedidos() {
       <SectionCard
         title="Filtros"
         actions={
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => loadBase()}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => loadBase()}
+            sx={denseButtonSx}
+          >
             Refresh
           </Button>
         }
@@ -279,15 +300,19 @@ export default function Pedidos() {
             label="Usuario"
             value={user}
             onChange={(e) => setUser(e.target.value)}
+            sx={denseTextFieldSx}
           />
           <TextField
             select
             label="PROVEEDOR"
             value={provLabel}
             onChange={(e) => setProvLabel(e.target.value)}
+            sx={denseTextFieldSx}
           >
             {proveedores.map((p) => (
-              <MenuItem key={p.label} value={p.label}>{p.label}</MenuItem>
+              <MenuItem key={p.label} value={p.label}>
+                {p.label}
+              </MenuItem>
             ))}
           </TextField>
         </Box>
@@ -300,9 +325,12 @@ export default function Pedidos() {
             value={pedidoLabel}
             onChange={(e) => setPedidoLabel(e.target.value)}
             disabled={!pedidosDelProveedor.length}
+            sx={denseTextFieldSx}
           >
             {pedidosDelProveedor.map((p) => (
-              <MenuItem key={p.label} value={p.label}>{p.label}</MenuItem>
+              <MenuItem key={p.label} value={p.label}>
+                {p.label}
+              </MenuItem>
             ))}
           </TextField>
         </Box>
@@ -330,12 +358,16 @@ export default function Pedidos() {
           ) : (
             <>
               <Typography variant="body2" sx={{ mb: 1 }}>
-                <b>Estado Actual:</b> <code>{traz[traz.length - 1].estado}</code><br/>
-                <b>Último cambio:</b> {traz[traz.length - 1].ts}<br/>
+                <b>Estado Actual:</b> <code>{traz[traz.length - 1].estado}</code>
+                <br />
+                <b>Último cambio:</b> {traz[traz.length - 1].ts}
+                <br />
                 <b>Usuario:</b> {traz[traz.length - 1].usr}
               </Typography>
               <DataGrid
                 autoHeight
+                rowHeight={38}
+                sx={denseGridSx}
                 rows={traz.map((r, i) => ({ id: i, ...r }))}
                 columns={trazCols}
                 pageSizeOptions={[25, 50, 100]}
@@ -348,26 +380,20 @@ export default function Pedidos() {
 
       <Divider sx={{ my: 2 }} />
 
-      <SectionCard
-        title="Líneas del pedido"
-        actions={
-          <Box display="flex" gap={1}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => loadPedido(pedidoSel)} disabled={!pedidoSel}>
-              Refresh detalle
-            </Button>
-            <Button variant="contained" onClick={saveLines} disabled={!pedidoSel}>
-              Guardar Modificaciones
-            </Button>
-          </Box>
-        }
-      >
+      {/* Líneas: aclaración + botones abajo */}
+      <SectionCard title="Líneas del pedido">
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
+          Se pueden editar <b>CANTIDAD</b> y <b>PRECIO</b>. Los demás campos son solo lectura.
+        </Typography>
+
         <DataGrid
           autoHeight
+          rowHeight={38}
+          sx={denseGridSx}
           rows={linesUi.map((r) => ({ id: r.ITEM, ...r }))}
           columns={colsLines}
           disableRowSelectionOnClick
           processRowUpdate={(newRow) => {
-            // mantener en state
             setLinesUi((prev) => prev.map((r) => (r.ITEM === newRow.ITEM ? newRow : r)));
             return newRow;
           }}
@@ -384,22 +410,43 @@ export default function Pedidos() {
             rightValue={money(totals.st)}
           />
         </Box>
+
+        <Box mt={2} display="flex" gap={1} justifyContent="flex-end">
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => loadPedido(pedidoSel)}
+            disabled={!pedidoSel}
+            sx={denseButtonSx}
+          >
+            Refresh detalle
+          </Button>
+          <Button variant="contained" onClick={saveLines} disabled={!pedidoSel} sx={denseButtonSx}>
+            Guardar modificaciones
+          </Button>
+        </Box>
       </SectionCard>
 
+      {/* Estado: botón abajo */}
       <SectionCard title="Estado del pedido" subtitle="Seleccioná el nuevo estado y registralo.">
-        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "3fr 1fr" }} gap={2} alignItems="end">
-          <TextField
-            select
-            label="Seleccioná nuevo estado"
-            value={newEstado}
-            onChange={(e) => setNewEstado(e.target.value)}
-            disabled={!estados.length}
-          >
-            {estados.map((e) => (
-              <MenuItem key={e.id} value={e.estado}>{e.estado}</MenuItem>
-            ))}
-          </TextField>
-          <Button variant="outlined" onClick={registrarEstado} disabled={!pedidoSel}>
+        <TextField
+          select
+          fullWidth
+          label="Seleccioná nuevo estado"
+          value={newEstado}
+          onChange={(e) => setNewEstado(e.target.value)}
+          disabled={!estados.length}
+          sx={denseTextFieldSx}
+        >
+          {estados.map((e) => (
+            <MenuItem key={e.id} value={e.estado}>
+              {e.estado}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <Box mt={2} display="flex" justifyContent="flex-end">
+          <Button variant="outlined" onClick={registrarEstado} disabled={!pedidoSel} sx={denseButtonSx}>
             Registrar cambio de estado
           </Button>
         </Box>
@@ -407,3 +454,4 @@ export default function Pedidos() {
     </Box>
   );
 }
+
