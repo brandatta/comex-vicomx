@@ -20,10 +20,7 @@ import { api } from "../api.js";
 
 function money(n) {
   const x = Number(n || 0);
-  return x.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function intf(n) {
   const x = Number(n || 0);
@@ -50,8 +47,7 @@ export default function Pedidos() {
     const map = new Map();
     for (const r of index) {
       const key = `${r.proveedor} - ${r.rs || ""}`;
-      if (!map.has(key))
-        map.set(key, { proveedor: r.proveedor, rs: r.rs || "", label: key });
+      if (!map.has(key)) map.set(key, { proveedor: r.proveedor, rs: r.rs || "", label: key });
     }
     return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
   }, [index]);
@@ -103,16 +99,9 @@ export default function Pedidos() {
         const map = new Map();
         for (const r of iRes.data.index || []) {
           const key = `${r.proveedor} - ${r.rs || ""}`;
-          if (!map.has(key))
-            map.set(key, {
-              proveedor: r.proveedor,
-              rs: r.rs || "",
-              label: key,
-            });
+          if (!map.has(key)) map.set(key, { proveedor: r.proveedor, rs: r.rs || "", label: key });
         }
-        const provs = [...map.values()].sort((a, b) =>
-          a.label.localeCompare(b.label)
-        );
+        const provs = [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
         if (provs.length) setProvLabel(provs[0].label);
       }
     } catch (e) {
@@ -144,10 +133,7 @@ export default function Pedidos() {
       setLinesUi(ui);
 
       const estadosTextos = (estados || []).map((x) => x.estado);
-      const def =
-        estadoActual && estadosTextos.includes(estadoActual)
-          ? estadoActual
-          : estadosTextos[0];
+      const def = estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
       setNewEstado(def);
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || "Error cargando pedido");
@@ -206,13 +192,8 @@ export default function Pedidos() {
   ];
 
   const totals = React.useMemo(() => {
-    const imp = (linesUi || []).map(
-      (r) => Number(r.CANTIDAD) * Number(r.PRECIO)
-    );
-    const qty = (linesUi || []).reduce(
-      (a, r) => a + Number(r.CANTIDAD || 0),
-      0
-    );
+    const imp = (linesUi || []).map((r) => Number(r.CANTIDAD) * Number(r.PRECIO));
+    const qty = (linesUi || []).reduce((a, r) => a + Number(r.CANTIDAD || 0), 0);
     const st = imp.reduce((a, x) => a + x, 0);
     return { qty, st };
   }, [linesUi]);
@@ -287,8 +268,20 @@ export default function Pedidos() {
 
   return (
     <Box>
-      {/* FILTROS */}
-      <SectionCard title="Filtros" subtitle="Seleccioná proveedor y pedido.">
+      <SectionCard
+        title="Filtros"
+        subtitle="Seleccioná proveedor y pedido."
+        footer={
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => loadBase()}
+          >
+            Refresh
+          </Button>
+        }
+      >
         <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 2fr" }} gap={1.25}>
           <TextField
             size="small"
@@ -341,23 +334,10 @@ export default function Pedidos() {
             </Typography>
           ) : null}
         </Box>
-
-        {/* BOTÓN ABAJO (no actions) */}
-        <Box mt={1.25} display="flex" justifyContent="flex-end">
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => loadBase()}
-          >
-            Refresh
-          </Button>
-        </Box>
       </SectionCard>
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* TRAZABILIDAD */}
       <Accordion
         defaultExpanded
         sx={{ border: "1px solid #e5e7eb", borderRadius: 2, boxShadow: "none" }}
@@ -367,7 +347,6 @@ export default function Pedidos() {
             🧾 Detalle / Trazabilidad del pedido
           </Typography>
         </AccordionSummary>
-
         <AccordionDetails sx={{ pt: 0 }}>
           {!traz.length ? (
             <Alert severity="info">Este pedido no tiene trazabilidad registrada en vicomx</Alert>
@@ -397,10 +376,25 @@ export default function Pedidos() {
 
       <Divider sx={{ my: 1.5 }} />
 
-      {/* LÍNEAS */}
       <SectionCard
         title="Líneas del pedido"
         subtitle="Podés editar CANTIDAD y PRECIO (doble clic en la celda). Luego guardá los cambios."
+        footer={
+          <>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => loadPedido(pedidoSel)}
+              disabled={!pedidoSel}
+            >
+              Refresh detalle
+            </Button>
+            <Button size="small" variant="contained" onClick={saveLines} disabled={!pedidoSel}>
+              Guardar cambios
+            </Button>
+          </>
+        }
       >
         <DataGrid
           sx={gridSx}
@@ -425,32 +419,17 @@ export default function Pedidos() {
             rightValue={money(totals.st)}
           />
         </Box>
-
-        {/* BOTONES ABAJO */}
-        <Box mt={1.25} display="flex" justifyContent="space-between" gap={1}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => loadPedido(pedidoSel)}
-            disabled={!pedidoSel}
-          >
-            Refresh detalle
-          </Button>
-
-          <Button
-            size="small"
-            variant="contained"
-            onClick={saveLines}
-            disabled={!pedidoSel}
-          >
-            Guardar cambios
-          </Button>
-        </Box>
       </SectionCard>
 
-      {/* ESTADO */}
-      <SectionCard title="Estado del pedido" subtitle="Seleccioná el nuevo estado.">
+      <SectionCard
+        title="Estado del pedido"
+        subtitle="Seleccioná el nuevo estado."
+        footer={
+          <Button size="small" variant="outlined" onClick={registrarEstado} disabled={!pedidoSel}>
+            Registrar cambio de estado
+          </Button>
+        }
+      >
         <Box
           display="grid"
           gridTemplateColumns={{ xs: "1fr", md: "3fr 1fr" }}
@@ -472,24 +451,7 @@ export default function Pedidos() {
             ))}
           </TextField>
 
-          <TextField
-            size="small"
-            disabled
-            label="Estado actual"
-            value={estadoActual || "(sin estado)"}
-          />
-        </Box>
-
-        {/* BOTÓN ABAJO */}
-        <Box mt={1.25} display="flex" justifyContent="flex-end">
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={registrarEstado}
-            disabled={!pedidoSel}
-          >
-            Registrar cambio de estado
-          </Button>
+          <TextField size="small" disabled label="Estado actual" value={estadoActual || "(sin estado)"} />
         </Box>
       </SectionCard>
     </Box>
