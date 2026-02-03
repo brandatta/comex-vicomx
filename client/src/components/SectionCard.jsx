@@ -1,39 +1,50 @@
 import { Paper, Box, Typography } from "@mui/material";
-import InfoTip from "./InfoTip.jsx";
 
-export default function SectionCard({ title, subtitle, children }) {
+export default function SectionCard({ title, subtitle, footer, children }) {
   return (
     <Paper
       elevation={0}
       sx={{
-        p: 3,
-        mb: 3,
+        p: 2,            // más compacto
+        mb: 2,
         border: "1px solid #e5e7eb",
         borderRadius: 3,
         backgroundColor: "#ffffff",
       }}
     >
       {(title || subtitle) && (
-        <Box
-          display="flex"
-          alignItems="center"
-          gap={1}
-          mb={2}
-        >
+        <Box mb={1.25}>
           {title && (
             <Typography
               variant="h6"
-              sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}
+              sx={{
+                fontWeight: 800,
+                letterSpacing: "-0.01em",
+                fontSize: 14,
+                lineHeight: 1.2,
+              }}
             >
               {title}
             </Typography>
           )}
-
-          {subtitle ? <InfoTip title={subtitle} /> : null}
+          {subtitle && (
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", mt: 0.25, fontSize: 12, lineHeight: 1.35 }}
+            >
+              {subtitle}
+            </Typography>
+          )}
         </Box>
       )}
 
       {children}
+
+      {footer ? (
+        <Box mt={1.25} display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
+          {footer}
+        </Box>
+      ) : null}
     </Paper>
   );
 }
