@@ -173,7 +173,20 @@ export default function NuevoPedido() {
       ) : null}
 
       {preview?.resumen?.length ? (
-        <SectionCard title="Pedidos a Generar en vicomx" subtitle="Si está todo OK, generá los pedidos al final de la sección.">
+        <SectionCard
+          title="Pedidos a Generar en vicomx"
+          subtitle="Si está todo OK, generá los pedidos al final de la sección."
+          footer={
+            <Button
+              variant="contained"
+              onClick={onGenerate}
+              disabled={loading || !file || !!preview?.sin?.length}
+              sx={denseButtonSx}
+            >
+              Generar en vicomx
+            </Button>
+          }
+        >
           <DataGrid
             autoHeight
             rowHeight={38}
@@ -183,18 +196,6 @@ export default function NuevoPedido() {
             pageSizeOptions={[25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
           />
-
-          {/* BOTÓN ABAJO */}
-          <Box mt={2} display="flex" justifyContent="flex-end">
-            <Button
-              variant="contained"
-              onClick={onGenerate}
-              disabled={loading || !file || !!preview?.sin?.length}
-              sx={denseButtonSx}
-            >
-              Generar en vicomx
-            </Button>
-          </Box>
 
           {created?.length ? (
             <Box mt={2}>
