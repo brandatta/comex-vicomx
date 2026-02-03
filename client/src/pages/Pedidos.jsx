@@ -18,13 +18,68 @@ import MetricsRow from "../components/MetricsRow.jsx";
 import { DataGrid } from "@mui/x-data-grid";
 import { api } from "../api.js";
 
-function money(n) {
-  const x = Number(n || 0);
-  return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/**
+ * Parse numérico robusto:
+ * - Acepta "1.234,56" (EU) y "1,234.56" (US) y números puros
+ * - Ignora símbolos/monedas
+ * - Devuelve null si no es parseable
+ */
+function parseNum(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+
+  let s = String(v).trim();
+  if (!s) return null;
+
+  // deja dígitos, signo, coma y punto
+  s = s.replace(/[^\d.,-]/g, "");
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    // si tiene ambos, asumimos que el separador decimal es el último de los dos
+    // ej: "1.234,56" => decimal ","
+    // ej: "1,234.56" => decimal "."
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+    const decIsComma = lastComma > lastDot;
+
+    if (decIsComma) {
+      // miles "." -> remove, decimal "," -> "."
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // miles "," -> remove, decimal "." -> "."
+      s = s.replace(/,/g, "");
+    }
+  } else if (hasComma && !hasDot) {
+    // sólo coma: puede ser decimal (AR) o miles (US). Si hay 1 coma y 1-2 decimales => decimal.
+    const parts = s.split(",");
+    if (parts.length === 2 && parts[1].length <= 2) {
+      s = s.replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else {
+    // sólo punto o ninguno: sacamos miles si fuera el caso no podemos distinguir perfecto,
+    // pero mantenemos el punto como decimal.
+    // (si viniera "1.234" se interpretará 1.234)
+  }
+
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
 }
+
+function money(n) {
+  const x = parseNum(n);
+  return x === null
+    ? "—"
+    : x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function intf(n) {
-  const x = Number(n || 0);
-  return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const x = parseNum(n);
+  return x === null ? "—" : x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 export default function Pedidos() {
@@ -126,14 +181,15 @@ export default function Pedidos() {
       const ui = raw.map((r) => ({
         ITEM: Number(r.ITEM),
         COD_ALFA: r.COD_ALFA,
-        CANTIDAD: Number(r.CANTIDAD),
-        PRECIO: Number(r.PRECIO),
+        CANTIDAD: parseNum(r.CANTIDAD),
+        PRECIO: parseNum(r.PRECIO),
         "RAZON SOCIAL": r.rs,
       }));
       setLinesUi(ui);
 
       const estadosTextos = (estados || []).map((x) => x.estado);
-      const def = estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
+      const def =
+        estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
       setNewEstado(def);
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || "Error cargando pedido");
@@ -192,8 +248,8 @@ export default function Pedidos() {
   ];
 
   const totals = React.useMemo(() => {
-    const imp = (linesUi || []).map((r) => Number(r.CANTIDAD) * Number(r.PRECIO));
-    const qty = (linesUi || []).reduce((a, r) => a + Number(r.CANTIDAD || 0), 0);
+    const imp = (linesUi || []).map((r) => (parseNum(r.CANTIDAD) || 0) * (parseNum(r.PRECIO) || 0));
+    const qty = (linesUi || []).reduce((a, r) => a + (parseNum(r.CANTIDAD) || 0), 0);
     const st = imp.reduce((a, x) => a + x, 0);
     return { qty, st };
   }, [linesUi]);
@@ -204,12 +260,10 @@ export default function Pedidos() {
     if (!pedidoSel) return;
 
     for (const r of linesUi) {
-      if (
-        !Number.isFinite(Number(r.CANTIDAD)) ||
-        !Number.isFinite(Number(r.PRECIO)) ||
-        Number(r.CANTIDAD) <= 0 ||
-        Number(r.PRECIO) <= 0
-      ) {
+      const c = parseNum(r.CANTIDAD);
+      const p = parseNum(r.PRECIO);
+
+      if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) {
         setError("Valores inválidos (cantidad/precio deben ser numéricos y > 0).");
         return;
       }
@@ -219,8 +273,8 @@ export default function Pedidos() {
       await api.put(`/pedidos/${encodeURIComponent(pedidoSel)}/lines`, {
         lines: linesUi.map((r) => ({
           ITEM: Number(r.ITEM),
-          CANTIDAD: Number(r.CANTIDAD),
-          PRECIO: Number(r.PRECIO),
+          CANTIDAD: parseNum(r.CANTIDAD),
+          PRECIO: parseNum(r.PRECIO),
         })),
       });
       setInfo("Líneas actualizadas.");
@@ -272,23 +326,13 @@ export default function Pedidos() {
         title="Filtros"
         subtitle="Seleccioná proveedor y pedido."
         footer={
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => loadBase()}
-          >
+          <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => loadBase()}>
             Refrescar
           </Button>
         }
       >
         <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 2fr" }} gap={1.25}>
-          <TextField
-            size="small"
-            label="Usuario"
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
-          />
+          <TextField size="small" label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} />
           <TextField
             size="small"
             select
@@ -326,10 +370,7 @@ export default function Pedidos() {
           {error ? <Alert severity="error">{error}</Alert> : null}
           {info ? <Alert severity="info">{info}</Alert> : null}
           {prov ? (
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", display: "block", mt: 0.75 }}
-            >
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
               Proveedor seleccionado: <b>{prov.proveedor} - {prov.rs}</b>
             </Typography>
           ) : null}
@@ -338,24 +379,16 @@ export default function Pedidos() {
 
       <Divider sx={{ my: 1.5 }} />
 
-      <Accordion
-        defaultExpanded
-        sx={{ border: "1px solid #e5e7eb", borderRadius: 2, boxShadow: "none" }}
-      >
+      <Accordion defaultExpanded sx={{ border: "1px solid #e5e7eb", borderRadius: 2, boxShadow: "none" }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 13 }}>
-            🧾 Detalle / Trazabilidad del pedido
-          </Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 13 }}>🧾 Detalle / Trazabilidad del pedido</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0 }}>
           {!traz.length ? (
             <Alert severity="info">Este pedido no tiene trazabilidad registrada en vicomx</Alert>
           ) : (
             <>
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "text.secondary" }}
-              >
+              <Typography variant="caption" sx={{ display: "block", mb: 1, color: "text.secondary" }}>
                 <b>Estado actual:</b> <code>{traz[traz.length - 1].estado}</code>{"  "}·{"  "}
                 <b>Último cambio:</b> {traz[traz.length - 1].ts}{"  "}·{"  "}
                 <b>Usuario:</b> {traz[traz.length - 1].usr}
