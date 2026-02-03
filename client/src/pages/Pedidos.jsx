@@ -39,23 +39,9 @@ export default function Pedidos() {
   const [pedidoLabel, setPedidoLabel] = React.useState("");
 
   const [traz, setTraz] = React.useState([]);
-  const [linesRaw, setLinesRaw] = React.useState([]);
   const [linesUi, setLinesUi] = React.useState([]);
 
   const [newEstado, setNewEstado] = React.useState("");
-
-  // --- DENSE UI (mitad de alto aprox) ---
-  const denseTextFieldSx = {
-    "& .MuiInputBase-root": { height: 40 },
-    "& .MuiInputBase-input": { py: 0.5 },
-  };
-  const denseButtonSx = { height: 38, px: 1.5 };
-  const denseGridSx = {
-    "& .MuiDataGrid-columnHeaders": { minHeight: 38, maxHeight: 38 },
-    "& .MuiDataGrid-row": { maxHeight: 38 },
-    "& .MuiDataGrid-cell": { py: 0.5 },
-    "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
-  };
 
   const proveedores = React.useMemo(() => {
     const map = new Map();
@@ -69,13 +55,15 @@ export default function Pedidos() {
   const pedidosDelProveedor = React.useMemo(() => {
     const prov = proveedores.find((p) => p.label === provLabel);
     if (!prov) return [];
-    const rows = index
+    return index
       .filter((r) => r.proveedor === prov.proveedor)
       .map((r) => {
         const estado = r.estado_texto || "(sin estado)";
-        return { ...r, label: `${r.pedido} | ${estado} | ${String(r.last_ts)}` };
+        return {
+          ...r,
+          label: `${r.pedido} | ${estado} | ${String(r.last_ts)}`,
+        };
       });
-    return rows;
   }, [index, provLabel, proveedores]);
 
   const pedidoSel = React.useMemo(() => {
@@ -92,7 +80,6 @@ export default function Pedidos() {
   async function loadBase() {
     setError("");
     setInfo("");
-
     try {
       const [eRes, iRes] = await Promise.all([
         api.get("/estados"),
@@ -104,21 +91,19 @@ export default function Pedidos() {
         setError("La tabla comex_estados no tiene registros.");
         return;
       }
-
       setEstados(estadosRows);
       setIndex(iRes.data.index || []);
 
-      // defaults proveedor
-      const provs = (() => {
+      // default proveedor
+      if ((iRes.data.index || []).length && !provLabel) {
         const map = new Map();
         for (const r of iRes.data.index || []) {
           const key = `${r.proveedor} - ${r.rs || ""}`;
           if (!map.has(key)) map.set(key, { proveedor: r.proveedor, rs: r.rs || "", label: key });
         }
-        return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
-      })();
-
-      if (provs.length && !provLabel) setProvLabel(provs[0].label);
+        const provs = [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+        if (provs.length) setProvLabel(provs[0].label);
+      }
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || "Error cargando datos");
     }
@@ -128,7 +113,6 @@ export default function Pedidos() {
     if (!pedido) return;
     setError("");
     setInfo("");
-
     try {
       const [tRes, lRes] = await Promise.all([
         api.get(`/pedidos/${encodeURIComponent(pedido)}/trazabilidad`),
@@ -139,9 +123,6 @@ export default function Pedidos() {
       setTraz(trazRows);
 
       const raw = lRes.data.lines || [];
-      setLinesRaw(raw);
-
-      // UI: ocultar TS, user_email, sap_ready, proc_sap
       const ui = raw.map((r) => ({
         ITEM: Number(r.ITEM),
         COD_ALFA: r.COD_ALFA,
@@ -151,7 +132,6 @@ export default function Pedidos() {
       }));
       setLinesUi(ui);
 
-      // default estado select
       const estadosTextos = (estados || []).map((x) => x.estado);
       const def = estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
       setNewEstado(def);
@@ -180,14 +160,14 @@ export default function Pedidos() {
   }, [pedidoSel]);
 
   const colsLines = [
-    { field: "ITEM", headerName: "ITEM", width: 90 },
+    { field: "ITEM", headerName: "ITEM", width: 80 },
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 140 },
     {
       field: "CANTIDAD",
       headerName: "CANTIDAD",
       type: "number",
       flex: 1,
-      minWidth: 140,
+      minWidth: 120,
       editable: true,
       valueFormatter: (p) => intf(p.value),
     },
@@ -196,19 +176,19 @@ export default function Pedidos() {
       headerName: "PRECIO",
       type: "number",
       flex: 1,
-      minWidth: 140,
+      minWidth: 120,
       editable: true,
       valueFormatter: (p) => money(p.value),
     },
-    { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 260 },
+    { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 220 },
   ];
 
   const trazCols = [
-    { field: "id", headerName: "ID", width: 90 },
+    { field: "id", headerName: "ID", width: 70 },
     { field: "pedido", headerName: "PEDIDO", flex: 2, minWidth: 220 },
-    { field: "estado", headerName: "ESTADO", flex: 1, minWidth: 180 },
-    { field: "ts", headerName: "TS", flex: 1, minWidth: 200 },
-    { field: "usr", headerName: "USR", flex: 1, minWidth: 200 },
+    { field: "estado", headerName: "ESTADO", flex: 1, minWidth: 160 },
+    { field: "ts", headerName: "TS", flex: 1, minWidth: 180 },
+    { field: "usr", headerName: "USR", flex: 1, minWidth: 160 },
   ];
 
   const totals = React.useMemo(() => {
@@ -221,7 +201,6 @@ export default function Pedidos() {
   async function saveLines() {
     setError("");
     setInfo("");
-
     if (!pedidoSel) return;
 
     for (const r of linesUi) {
@@ -244,7 +223,7 @@ export default function Pedidos() {
           PRECIO: Number(r.PRECIO),
         })),
       });
-      setInfo("Líneas Actualizadas.");
+      setInfo("Líneas actualizadas.");
       await loadPedido(pedidoSel);
     } catch (e) {
       setError(e?.response?.data?.error || e?.message || "Error guardando líneas");
@@ -254,8 +233,8 @@ export default function Pedidos() {
   async function registrarEstado() {
     setError("");
     setInfo("");
-
     if (!pedidoSel) return;
+
     if (!user.trim()) {
       setError("Ingresá el usuario para registrar el cambio de estado.");
       return;
@@ -280,34 +259,42 @@ export default function Pedidos() {
 
   const prov = proveedores.find((p) => p.label === provLabel);
 
+  const gridSx = {
+    "& .MuiDataGrid-columnHeaders": { minHeight: 36, maxHeight: 36 },
+    "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700, fontSize: 12 },
+    "& .MuiDataGrid-cell": { py: 0.5, fontSize: 12 },
+    "& .MuiDataGrid-row": { maxHeight: 36 },
+  };
+
   return (
     <Box>
       <SectionCard
         title="Filtros"
+        subtitle="Seleccioná proveedor y pedido."
         actions={
           <Button
+            size="small"
             variant="outlined"
             startIcon={<RefreshIcon />}
             onClick={() => loadBase()}
-            sx={denseButtonSx}
           >
             Refresh
           </Button>
         }
       >
-        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 2fr" }} gap={2}>
+        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 2fr" }} gap={1.25}>
           <TextField
+            size="small"
             label="Usuario"
             value={user}
             onChange={(e) => setUser(e.target.value)}
-            sx={denseTextFieldSx}
           />
           <TextField
+            size="small"
             select
             label="PROVEEDOR"
             value={provLabel}
             onChange={(e) => setProvLabel(e.target.value)}
-            sx={denseTextFieldSx}
           >
             {proveedores.map((p) => (
               <MenuItem key={p.label} value={p.label}>
@@ -317,15 +304,15 @@ export default function Pedidos() {
           </TextField>
         </Box>
 
-        <Box mt={2}>
+        <Box mt={1.25}>
           <TextField
+            size="small"
             fullWidth
             select
             label="PEDIDO"
             value={pedidoLabel}
             onChange={(e) => setPedidoLabel(e.target.value)}
             disabled={!pedidosDelProveedor.length}
-            sx={denseTextFieldSx}
           >
             {pedidosDelProveedor.map((p) => (
               <MenuItem key={p.label} value={p.label}>
@@ -335,39 +322,39 @@ export default function Pedidos() {
           </TextField>
         </Box>
 
-        <Box mt={2}>
+        <Box mt={1.25}>
           {error ? <Alert severity="error">{error}</Alert> : null}
           {info ? <Alert severity="info">{info}</Alert> : null}
           {prov ? (
-            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 1 }}>
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
               Proveedor seleccionado: <b>{prov.proveedor} - {prov.rs}</b>
             </Typography>
           ) : null}
         </Box>
       </SectionCard>
 
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 1.5 }} />
 
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography sx={{ fontWeight: 800 }}>🧾 Detalle / Trazabilidad del pedido</Typography>
+      <Accordion defaultExpanded sx={{ border: "1px solid #e5e7eb", borderRadius: 2, boxShadow: "none" }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 13 }}>
+            🧾 Detalle / Trazabilidad del pedido
+          </Typography>
         </AccordionSummary>
-        <AccordionDetails>
+        <AccordionDetails sx={{ pt: 0 }}>
           {!traz.length ? (
             <Alert severity="info">Este pedido no tiene trazabilidad registrada en vicomx</Alert>
           ) : (
             <>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <b>Estado Actual:</b> <code>{traz[traz.length - 1].estado}</code>
-                <br />
-                <b>Último cambio:</b> {traz[traz.length - 1].ts}
-                <br />
+              <Typography variant="caption" sx={{ display: "block", mb: 1, color: "text.secondary" }}>
+                <b>Estado actual:</b> <code>{traz[traz.length - 1].estado}</code>{"  "}·{"  "}
+                <b>Último cambio:</b> {traz[traz.length - 1].ts}{"  "}·{"  "}
                 <b>Usuario:</b> {traz[traz.length - 1].usr}
               </Typography>
+
               <DataGrid
+                sx={gridSx}
                 autoHeight
-                rowHeight={38}
-                sx={denseGridSx}
                 rows={traz.map((r, i) => ({ id: i, ...r }))}
                 columns={trazCols}
                 pageSizeOptions={[25, 50, 100]}
@@ -378,18 +365,31 @@ export default function Pedidos() {
         </AccordionDetails>
       </Accordion>
 
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 1.5 }} />
 
-      {/* Líneas: aclaración + botones abajo */}
-      <SectionCard title="Líneas del pedido">
-        <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-          Se pueden editar <b>CANTIDAD</b> y <b>PRECIO</b>. Los demás campos son solo lectura.
-        </Typography>
-
+      <SectionCard
+        title="Líneas del pedido"
+        subtitle="Podés editar CANTIDAD y PRECIO haciendo doble clic en la celda. Luego guardá los cambios."
+        actions={
+          <>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => loadPedido(pedidoSel)}
+              disabled={!pedidoSel}
+            >
+              Refresh detalle
+            </Button>
+            <Button size="small" variant="contained" onClick={saveLines} disabled={!pedidoSel}>
+              Guardar cambios
+            </Button>
+          </>
+        }
+      >
         <DataGrid
+          sx={gridSx}
           autoHeight
-          rowHeight={38}
-          sx={denseGridSx}
           rows={linesUi.map((r) => ({ id: r.ITEM, ...r }))}
           columns={colsLines}
           disableRowSelectionOnClick
@@ -402,7 +402,7 @@ export default function Pedidos() {
           initialState={{ pagination: { paginationModel: { pageSize: 50, page: 0 } } }}
         />
 
-        <Box mt={2}>
+        <Box mt={1.25}>
           <MetricsRow
             leftLabel="Cantidad Total"
             leftValue={intf(totals.qty)}
@@ -410,48 +410,41 @@ export default function Pedidos() {
             rightValue={money(totals.st)}
           />
         </Box>
-
-        <Box mt={2} display="flex" gap={1} justifyContent="flex-end">
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => loadPedido(pedidoSel)}
-            disabled={!pedidoSel}
-            sx={denseButtonSx}
-          >
-            Refresh detalle
-          </Button>
-          <Button variant="contained" onClick={saveLines} disabled={!pedidoSel} sx={denseButtonSx}>
-            Guardar modificaciones
-          </Button>
-        </Box>
       </SectionCard>
 
-      {/* Estado: botón abajo */}
-      <SectionCard title="Estado del pedido" subtitle="Seleccioná el nuevo estado y registralo.">
-        <TextField
-          select
-          fullWidth
-          label="Seleccioná nuevo estado"
-          value={newEstado}
-          onChange={(e) => setNewEstado(e.target.value)}
-          disabled={!estados.length}
-          sx={denseTextFieldSx}
-        >
-          {estados.map((e) => (
-            <MenuItem key={e.id} value={e.estado}>
-              {e.estado}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        <Box mt={2} display="flex" justifyContent="flex-end">
-          <Button variant="outlined" onClick={registrarEstado} disabled={!pedidoSel} sx={denseButtonSx}>
+      <SectionCard
+        title="Estado del pedido"
+        subtitle="Seleccioná el nuevo estado y registralo."
+        actions={
+          <Button size="small" variant="outlined" onClick={registrarEstado} disabled={!pedidoSel}>
             Registrar cambio de estado
           </Button>
+        }
+      >
+        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "3fr 1fr" }} gap={1.25} alignItems="end">
+          <TextField
+            size="small"
+            select
+            label="Nuevo estado"
+            value={newEstado}
+            onChange={(e) => setNewEstado(e.target.value)}
+            disabled={!estados.length}
+          >
+            {estados.map((e) => (
+              <MenuItem key={e.id} value={e.estado}>
+                {e.estado}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            size="small"
+            disabled
+            label="Estado actual"
+            value={estadoActual || "(sin estado)"}
+          />
         </Box>
       </SectionCard>
     </Box>
   );
 }
-
