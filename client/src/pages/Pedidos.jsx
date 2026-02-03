@@ -278,7 +278,7 @@ export default function Pedidos() {
             startIcon={<RefreshIcon />}
             onClick={() => loadBase()}
           >
-            Refresh
+            Refrescar
           </Button>
         }
       >
@@ -388,7 +388,7 @@ export default function Pedidos() {
               onClick={() => loadPedido(pedidoSel)}
               disabled={!pedidoSel}
             >
-              Refresh detalle
+              Refrescar detalle
             </Button>
             <Button size="small" variant="contained" onClick={saveLines} disabled={!pedidoSel}>
               Guardar cambios
