@@ -22,14 +22,14 @@ import { api } from "../api.js";
  * Parse numérico robusto:
  * - Acepta "1.234,56" (EU) y "1,234.56" (US) y números puros
  * - Ignora símbolos/monedas
- * - Devuelve 0 si no es parseable (evita "—" / NaN / nulls)
+ * - Devuelve null si no es parseable
  */
 function parseNum(v) {
-  if (v === null || v === undefined) return 0;
-  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
 
   let s = String(v).trim();
-  if (!s) return 0;
+  if (!s) return null;
 
   // deja dígitos, signo, coma y punto
   s = s.replace(/[^\d.,-]/g, "");
@@ -38,9 +38,7 @@ function parseNum(v) {
   const hasDot = s.includes(".");
 
   if (hasComma && hasDot) {
-    // si tiene ambos, asumimos que el separador decimal es el último de los dos
-    // ej: "1.234,56" => decimal ","
-    // ej: "1,234.56" => decimal "."
+    // si tiene ambos, el separador decimal es el último de los dos
     const lastComma = s.lastIndexOf(",");
     const lastDot = s.lastIndexOf(".");
     const decIsComma = lastComma > lastDot;
@@ -53,30 +51,44 @@ function parseNum(v) {
       s = s.replace(/,/g, "");
     }
   } else if (hasComma && !hasDot) {
-    // sólo coma: puede ser decimal (AR) o miles (US). Si hay 1 coma y 1-2 decimales => decimal.
+    // sólo coma: si parece decimal (1-3 decimales) => decimal, sino miles
     const parts = s.split(",");
-    if (parts.length === 2 && parts[1].length <= 2) {
+    if (parts.length === 2 && parts[1].length <= 3) {
       s = s.replace(",", ".");
     } else {
       s = s.replace(/,/g, "");
     }
   } else {
-    // sólo punto o ninguno: mantenemos el punto como decimal.
-    // (si viniera "1.234" se interpretará 1.234)
+    // sólo punto o ninguno: mantenemos el punto como decimal
   }
 
   const n = Number(s);
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
 
 function money(n) {
   const x = parseNum(n);
-  return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return x === null
+    ? "—"
+    : x.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 }
 
-function intf(n) {
+/**
+ * Cantidad:
+ * - NO redondea a entero (ese era el motivo de los "0")
+ * - Muestra hasta 3 decimales, y si es entero, muestra 0 decimales
+ */
+function qtyf(n) {
   const x = parseNum(n);
-  return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (x === null) return "—";
+  const isInt = Math.abs(x - Math.round(x)) < 1e-9;
+  return x.toLocaleString(undefined, {
+    minimumFractionDigits: isInt ? 0 : 0,
+    maximumFractionDigits: isInt ? 0 : 3,
+  });
 }
 
 export default function Pedidos() {
@@ -178,6 +190,7 @@ export default function Pedidos() {
       const ui = raw.map((r) => ({
         ITEM: Number(r.ITEM),
         COD_ALFA: r.COD_ALFA,
+        // guardamos como number (si parsea) para que el grid no “invente” 0
         CANTIDAD: parseNum(r.CANTIDAD),
         PRECIO: parseNum(r.PRECIO),
         "RAZON SOCIAL": r.rs,
@@ -222,7 +235,7 @@ export default function Pedidos() {
       flex: 1,
       minWidth: 120,
       editable: true,
-      valueFormatter: (p) => intf(p.value),
+      valueFormatter: (p) => qtyf(p.value),
     },
     {
       field: "PRECIO",
@@ -245,8 +258,12 @@ export default function Pedidos() {
   ];
 
   const totals = React.useMemo(() => {
-    const imp = (linesUi || []).map((r) => parseNum(r.CANTIDAD) * parseNum(r.PRECIO));
-    const qty = (linesUi || []).reduce((a, r) => a + parseNum(r.CANTIDAD), 0);
+    const imp = (linesUi || []).map((r) => {
+      const c = parseNum(r.CANTIDAD);
+      const p = parseNum(r.PRECIO);
+      return (c ?? 0) * (p ?? 0);
+    });
+    const qty = (linesUi || []).reduce((a, r) => a + (parseNum(r.CANTIDAD) ?? 0), 0);
     const st = imp.reduce((a, x) => a + x, 0);
     return { qty, st };
   }, [linesUi]);
@@ -323,23 +340,13 @@ export default function Pedidos() {
         title="Filtros"
         subtitle="Seleccioná proveedor y pedido."
         footer={
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => loadBase()}
-          >
+          <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={() => loadBase()}>
             Refrescar
           </Button>
         }
       >
         <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 2fr" }} gap={1.25}>
-          <TextField
-            size="small"
-            label="Usuario"
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
-          />
+          <TextField size="small" label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} />
           <TextField
             size="small"
             select
@@ -377,10 +384,7 @@ export default function Pedidos() {
           {error ? <Alert severity="error">{error}</Alert> : null}
           {info ? <Alert severity="info">{info}</Alert> : null}
           {prov ? (
-            <Typography
-              variant="caption"
-              sx={{ color: "text.secondary", display: "block", mt: 0.75 }}
-            >
+            <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
               Proveedor seleccionado: <b>{prov.proveedor} - {prov.rs}</b>
             </Typography>
           ) : null}
@@ -389,24 +393,16 @@ export default function Pedidos() {
 
       <Divider sx={{ my: 1.5 }} />
 
-      <Accordion
-        defaultExpanded
-        sx={{ border: "1px solid #e5e7eb", borderRadius: 2, boxShadow: "none" }}
-      >
+      <Accordion defaultExpanded sx={{ border: "1px solid #e5e7eb", borderRadius: 2, boxShadow: "none" }}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 44 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 13 }}>
-            🧾 Detalle / Trazabilidad del pedido
-          </Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 13 }}>🧾 Detalle / Trazabilidad del pedido</Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0 }}>
           {!traz.length ? (
             <Alert severity="info">Este pedido no tiene trazabilidad registrada en vicomx</Alert>
           ) : (
             <>
-              <Typography
-                variant="caption"
-                sx={{ display: "block", mb: 1, color: "text.secondary" }}
-              >
+              <Typography variant="caption" sx={{ display: "block", mb: 1, color: "text.secondary" }}>
                 <b>Estado actual:</b> <code>{traz[traz.length - 1].estado}</code>{"  "}·{"  "}
                 <b>Último cambio:</b> {traz[traz.length - 1].ts}{"  "}·{"  "}
                 <b>Usuario:</b> {traz[traz.length - 1].usr}
@@ -465,7 +461,7 @@ export default function Pedidos() {
         <Box mt={1.25}>
           <MetricsRow
             leftLabel="Cantidad Total"
-            leftValue={intf(totals.qty)}
+            leftValue={qtyf(totals.qty)}
             rightLabel="ST USD"
             rightValue={money(totals.st)}
           />
