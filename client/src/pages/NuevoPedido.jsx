@@ -4,7 +4,6 @@ import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
 
-const UI_BUILD = "UI_BUILD_2026-02-04_03";
 
 // Soporta: "9,81", "1.234,56", "$ 9.811,93", "21.58", etc.
 // Devuelve: number | null
@@ -212,10 +211,6 @@ export default function NuevoPedido() {
   return (
     <Box>
       <SectionCard title="Carga de planilla" subtitle="Seleccioná el Excel y validamos columnas y valores.">
-        <Alert severity="info" sx={{ mt: 2 }}>
-          {UI_BUILD}
-        </Alert>
-
         <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2} alignItems="center" mt={2}>
           <TextField
             label="Usuario"
