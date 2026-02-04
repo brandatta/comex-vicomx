@@ -14,17 +14,20 @@ function parseNumberAR(v) {
 
   const clean = s.replace(/[^\d.,-]/g, "");
 
+  // caso AR típico: 1.234,56  -> 1234.56
   if (clean.includes(",") && clean.includes(".")) {
     const normalized = clean.replace(/\./g, "").replace(",", ".");
     const n = Number(normalized);
     return Number.isFinite(n) ? n : 0;
   }
 
+  // caso: 123,45 -> 123.45
   if (clean.includes(",") && !clean.includes(".")) {
     const n = Number(clean.replace(",", "."));
     return Number.isFinite(n) ? n : 0;
   }
 
+  // caso: 1234.56 o 1234
   const n = Number(clean);
   return Number.isFinite(n) ? n : 0;
 }
@@ -41,7 +44,7 @@ function toInt(n) {
 
 /**
  * Normaliza nombres de campos del backend/excel para que la grilla no muestre 0 por undefined.
- * Esto corrige: PRECIO/CANTIDAD en UI pero backend devuelve price/quantity (o viceversa).
+ * Corrige el caso típico: backend devuelve price/quantity y la UI busca PRECIO/CANTIDAD.
  */
 function normalizeMergedRow(r, id) {
   return {
@@ -160,7 +163,12 @@ export default function NuevoPedido() {
     <Box>
       <SectionCard title="Carga de planilla" subtitle="Seleccioná el Excel y validamos columnas y valores.">
         <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2} alignItems="center">
-          <TextField label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} sx={denseTextFieldSx} />
+          <TextField
+            label="Usuario"
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            sx={denseTextFieldSx}
+          />
 
           <Button
             variant="outlined"
