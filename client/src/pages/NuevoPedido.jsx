@@ -4,9 +4,9 @@ import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
 
-const UI_BUILD = "UI_BUILD_2026-02-04_01";
+const UI_BUILD = "UI_BUILD_2026-02-04_02";
 
-// ✅ parse robusto: si no puede parsear devuelve null (no 0 fantasma)
+// ✅ parse robusto AR: devuelve null si no puede parsear (evita 0 fantasma)
 function parseNumberAR(v) {
   if (v === null || v === undefined) return null;
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
@@ -37,29 +37,32 @@ function parseNumberAR(v) {
 
 function toMoney(n) {
   const x = parseNumberAR(n);
-  if (x === null) return ""; // ✅ no mostrar 0 si es inválido
+  if (x === null) return "-";
   return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function toInt(n) {
   const x = parseNumberAR(n);
-  if (x === null) return "";
+  if (x === null) return "-";
   return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 /**
- * Normaliza campos y además convierte PRECIO/CANTIDAD a número real.
- * Esto evita que el DataGrid/formatter reciba strings raros o undefined.
+ * Normaliza nombres de campos del backend/excel y fuerza conversión a número.
+ * ✅ Si ya viene number, no lo re-parsea (evita quedar en null por parse redundante).
  */
 function normalizeMergedRow(r, id) {
   const precioRaw = r.PRECIO ?? r.precio ?? r.price ?? null;
   const cantRaw = r.CANTIDAD ?? r.cantidad ?? r.quantity ?? null;
 
+  const precioNum = typeof precioRaw === "number" ? precioRaw : parseNumberAR(precioRaw);
+  const cantNum = typeof cantRaw === "number" ? cantRaw : parseNumberAR(cantRaw);
+
   return {
     id,
     COD_ALFA: r.COD_ALFA ?? r.cod_alfa ?? "",
-    PRECIO: parseNumberAR(precioRaw),     // ✅ número (o null)
-    CANTIDAD: parseNumberAR(cantRaw),     // ✅ número (o null)
+    PRECIO: precioNum, // number|null
+    CANTIDAD: cantNum, // number|null
     proveedor: r.proveedor ?? r.PROVEEDOR ?? "",
     nombre: r.nombre ?? r.NOMBRE ?? r["RAZON SOCIAL"] ?? r.RAZON_SOCIAL ?? r.razon_social ?? "",
   };
@@ -77,13 +80,16 @@ function normalizeResumenRow(r, id) {
   const cantTotalRaw = r.CANTIDAD_TOTAL ?? r.cantidad_total ?? null;
   const stUsdRaw = r.ST_USD ?? r.st_usd ?? null;
 
+  const cantTotalNum = typeof cantTotalRaw === "number" ? cantTotalRaw : parseNumberAR(cantTotalRaw);
+  const stUsdNum = typeof stUsdRaw === "number" ? stUsdRaw : parseNumberAR(stUsdRaw);
+
   return {
     id,
     PROVEEDOR: r.PROVEEDOR ?? r.proveedor ?? "",
     "RAZON SOCIAL": razon,
     ITEMS: r.ITEMS ?? r.items ?? 0,
-    CANTIDAD_TOTAL: parseNumberAR(cantTotalRaw), // ✅ número (o null)
-    ST_USD: parseNumberAR(stUsdRaw),             // ✅ número (o null)
+    CANTIDAD_TOTAL: cantTotalNum, // number|null
+    ST_USD: stUsdNum,             // number|null
   };
 }
 
@@ -119,6 +125,15 @@ export default function NuevoPedido() {
     try {
       setLoading(true);
       const data = await previewExcel(f);
+
+      // ✅ DEBUG (temporal): ver exactamente qué llega del backend y cómo lo normalizamos
+      console.log("PREVIEW raw merged[0]:", data?.merged?.[0]);
+      console.log("PREVIEW raw types:", {
+        precio: typeof data?.merged?.[0]?.PRECIO,
+        cantidad: typeof data?.merged?.[0]?.CANTIDAD,
+      });
+      console.log("PREVIEW normalized[0]:", normalizeMergedRow(data?.merged?.[0] || {}, 0));
+
       setPreview(data);
     } catch (e) {
       setError(e?.response?.data?.error || e?.response?.data?.message || e?.message || "Error");
@@ -162,7 +177,7 @@ export default function NuevoPedido() {
       flex: 1,
       minWidth: 120,
       valueGetter: (p) => p.row?.PRECIO ?? null,
-      valueFormatter: (p) => (p.value === null ? "" : toMoney(p.value)),
+      valueFormatter: (p) => (p.value === null ? "-" : toMoney(p.value)),
     },
     {
       field: "CANTIDAD",
@@ -170,7 +185,7 @@ export default function NuevoPedido() {
       flex: 1,
       minWidth: 120,
       valueGetter: (p) => p.row?.CANTIDAD ?? null,
-      valueFormatter: (p) => (p.value === null ? "" : toInt(p.value)),
+      valueFormatter: (p) => (p.value === null ? "-" : toInt(p.value)),
     },
     { field: "proveedor", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "nombre", headerName: "NOMBRE", flex: 2, minWidth: 240 },
@@ -185,8 +200,8 @@ export default function NuevoPedido() {
       headerName: "CANTIDAD_TOTAL",
       flex: 1,
       minWidth: 160,
-      valueGetter: (p) => p.row?.CANTIDAD_TOTAL ?? null,
-      valueFormatter: (p) => (p.value === null ? "" : toInt(p.value)),
+      valueGetter: (p) => p.row?.["CANTIDAD_TOTAL"] ?? null,
+      valueFormatter: (p) => (p.value === null ? "-" : toInt(p.value)),
     },
     {
       field: "ST_USD",
@@ -194,7 +209,7 @@ export default function NuevoPedido() {
       flex: 1,
       minWidth: 140,
       valueGetter: (p) => p.row?.ST_USD ?? null,
-      valueFormatter: (p) => (p.value === null ? "" : toMoney(p.value)),
+      valueFormatter: (p) => (p.value === null ? "-" : toMoney(p.value)),
     },
   ];
 
