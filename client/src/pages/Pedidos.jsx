@@ -10,6 +10,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   MenuItem,
+  Snackbar,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -89,8 +90,11 @@ function numForSort(v) {
 
 export default function Pedidos() {
   const [user, setUser] = React.useState("");
-  const [error, setError] = React.useState("");
-  const [info, setInfo] = React.useState("");
+
+  // ⬇️ En vez de mostrar arriba, mostramos abajo con Snackbar
+  const [snackOpen, setSnackOpen] = React.useState(false);
+  const [snackMsg, setSnackMsg] = React.useState("");
+  const [snackSeverity, setSnackSeverity] = React.useState("info"); // info | success | error | warning
 
   const [estados, setEstados] = React.useState([]);
   const [index, setIndex] = React.useState([]);
@@ -102,6 +106,12 @@ export default function Pedidos() {
   const [linesUi, setLinesUi] = React.useState([]);
 
   const [newEstado, setNewEstado] = React.useState("");
+
+  const showSnack = React.useCallback((severity, msg) => {
+    setSnackSeverity(severity);
+    setSnackMsg(msg || "");
+    setSnackOpen(true);
+  }, []);
 
   const proveedores = React.useMemo(() => {
     const map = new Map();
@@ -135,8 +145,6 @@ export default function Pedidos() {
   }, [pedidoSel, pedidosDelProveedor]);
 
   async function loadBase() {
-    setError("");
-    setInfo("");
     try {
       const [eRes, iRes] = await Promise.all([
         api.get("/estados"),
@@ -145,7 +153,7 @@ export default function Pedidos() {
 
       const estadosRows = eRes.data.estados || [];
       if (!estadosRows.length) {
-        setError("La tabla comex_estados no tiene registros.");
+        showSnack("error", "La tabla comex_estados no tiene registros.");
         return;
       }
       setEstados(estadosRows);
@@ -161,14 +169,12 @@ export default function Pedidos() {
         if (provs.length) setProvLabel(provs[0].label);
       }
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || "Error cargando datos");
+      showSnack("error", e?.response?.data?.error || e?.message || "Error cargando datos");
     }
   }
 
   async function loadPedido(pedido) {
     if (!pedido) return;
-    setError("");
-    setInfo("");
     try {
       const [tRes, lRes] = await Promise.all([
         api.get(`/pedidos/${encodeURIComponent(pedido)}/trazabilidad`),
@@ -183,7 +189,7 @@ export default function Pedidos() {
         ITEM: Number(r.ITEM),
         COD_ALFA: r.COD_ALFA,
         CANTIDAD: r.CANTIDAD, // raw
-        PRECIO: r.PRECIO,     // raw
+        PRECIO: r.PRECIO, // raw
         "RAZON SOCIAL": r.rs,
       }));
       setLinesUi(ui);
@@ -192,7 +198,7 @@ export default function Pedidos() {
       const def = estadoActual && estadosTextos.includes(estadoActual) ? estadoActual : estadosTextos[0];
       setNewEstado(def);
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || "Error cargando pedido");
+      showSnack("error", e?.response?.data?.error || e?.message || "Error cargando pedido");
     }
   }
 
@@ -218,16 +224,13 @@ export default function Pedidos() {
   const colsLines = [
     { field: "ITEM", headerName: "ITEM", width: 80 },
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 140 },
-
     {
       field: "CANTIDAD",
       headerName: "CANTIDAD",
       flex: 1,
       minWidth: 120,
       editable: true,
-      // ✅ muestra lo correcto sin “inventar 0”
       renderCell: (params) => qtyf(params.row?.CANTIDAD),
-      // ✅ orden numérico aunque sea string
       sortComparator: (a, b, p1, p2) => {
         const n1 = numForSort(p1?.row?.CANTIDAD);
         const n2 = numForSort(p2?.row?.CANTIDAD);
@@ -247,7 +250,6 @@ export default function Pedidos() {
         return n1 - n2;
       },
     },
-
     { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 220 },
   ];
 
@@ -270,8 +272,6 @@ export default function Pedidos() {
   }, [linesUi]);
 
   async function saveLines() {
-    setError("");
-    setInfo("");
     if (!pedidoSel) return;
 
     // ✅ validamos parseables y >0
@@ -279,7 +279,7 @@ export default function Pedidos() {
       const c = parseNum(r.CANTIDAD);
       const p = parseNum(r.PRECIO);
       if (!Number.isFinite(c) || !Number.isFinite(p) || c <= 0 || p <= 0) {
-        setError("Valores inválidos (cantidad/precio deben ser numéricos y > 0).");
+        showSnack("error", "Valores inválidos (cantidad/precio deben ser numéricos y > 0).");
         return;
       }
     }
@@ -292,24 +292,22 @@ export default function Pedidos() {
           PRECIO: parseNum(r.PRECIO),
         })),
       });
-      setInfo("Líneas actualizadas.");
+      showSnack("success", "Líneas actualizadas.");
       await loadPedido(pedidoSel);
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || "Error guardando líneas");
+      showSnack("error", e?.response?.data?.error || e?.message || "Error guardando líneas");
     }
   }
 
   async function registrarEstado() {
-    setError("");
-    setInfo("");
     if (!pedidoSel) return;
 
     if (!user.trim()) {
-      setError("Ingresá el usuario para registrar el cambio de estado.");
+      showSnack("error", "Ingresá el usuario para registrar el cambio de estado.");
       return;
     }
     if (estadoActual === newEstado) {
-      setInfo("El pedido ya está en ese estado. No se registró un nuevo movimiento.");
+      showSnack("info", "El pedido ya está en ese estado. No se registró un nuevo movimiento.");
       return;
     }
 
@@ -318,11 +316,11 @@ export default function Pedidos() {
         estado_texto: newEstado,
         usr: user.trim(),
       });
-      setInfo(`'${newEstado}' registrado en vicomx`);
+      showSnack("success", `'${newEstado}' registrado en vicomx`);
       await loadBase();
       await loadPedido(pedidoSel);
     } catch (e) {
-      setError(e?.response?.data?.error || e?.message || "Error registrando estado");
+      showSnack("error", e?.response?.data?.error || e?.message || "Error registrando estado");
     }
   }
 
@@ -382,8 +380,7 @@ export default function Pedidos() {
         </Box>
 
         <Box mt={1.25}>
-          {error ? <Alert severity="error">{error}</Alert> : null}
-          {info ? <Alert severity="info">{info}</Alert> : null}
+          {/* ✅ ya no mostramos confirmaciones arriba */}
           {prov ? (
             <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mt: 0.75 }}>
               Proveedor seleccionado:{" "}
@@ -454,7 +451,6 @@ export default function Pedidos() {
           columns={colsLines}
           disableRowSelectionOnClick
           processRowUpdate={(newRow) => {
-            // ✅ mantengo raw values editados
             setLinesUi((prev) => prev.map((r) => (r.ITEM === newRow.ITEM ? newRow : r)));
             return newRow;
           }}
@@ -501,6 +497,18 @@ export default function Pedidos() {
           <TextField size="small" disabled label="Estado actual" value={estadoActual || "(sin estado)"} />
         </Box>
       </SectionCard>
+
+      {/* ✅ Avisos/confirmaciones abajo */}
+      <Snackbar
+        open={snackOpen}
+        onClose={() => setSnackOpen(false)}
+        autoHideDuration={6000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setSnackOpen(false)} severity={snackSeverity} sx={{ width: "100%" }}>
+          {snackMsg}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
