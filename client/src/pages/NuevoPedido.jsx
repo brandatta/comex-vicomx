@@ -3,57 +3,63 @@ import { Box, Button, TextField, Alert, Typography } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
+
 const UI_BUILD = "UI_BUILD_2026-02-04_01";
 
-
-// --- FIX: soporta números como "9,81", "1.234,56", "$ 9.811,93", etc. ---
+// ✅ parse robusto: si no puede parsear devuelve null (no 0 fantasma)
 function parseNumberAR(v) {
-  if (v === null || v === undefined) return 0;
-  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
 
   const s = String(v).trim();
-  if (!s) return 0;
+  if (!s) return null;
 
   const clean = s.replace(/[^\d.,-]/g, "");
+  if (!clean) return null;
 
-  // caso AR típico: 1.234,56  -> 1234.56
+  // 1.234,56 -> 1234.56
   if (clean.includes(",") && clean.includes(".")) {
     const normalized = clean.replace(/\./g, "").replace(",", ".");
     const n = Number(normalized);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : null;
   }
 
-  // caso: 123,45 -> 123.45
+  // 123,45 -> 123.45
   if (clean.includes(",") && !clean.includes(".")) {
     const n = Number(clean.replace(",", "."));
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : null;
   }
 
-  // caso: 1234.56 o 1234
+  // 1234.56 o 1234
   const n = Number(clean);
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
 
 function toMoney(n) {
   const x = parseNumberAR(n);
+  if (x === null) return ""; // ✅ no mostrar 0 si es inválido
   return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function toInt(n) {
   const x = parseNumberAR(n);
+  if (x === null) return "";
   return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 /**
- * Normaliza nombres de campos del backend/excel para que la grilla no muestre 0 por undefined.
- * Corrige el caso típico: backend devuelve price/quantity y la UI busca PRECIO/CANTIDAD.
+ * Normaliza campos y además convierte PRECIO/CANTIDAD a número real.
+ * Esto evita que el DataGrid/formatter reciba strings raros o undefined.
  */
 function normalizeMergedRow(r, id) {
+  const precioRaw = r.PRECIO ?? r.precio ?? r.price ?? null;
+  const cantRaw = r.CANTIDAD ?? r.cantidad ?? r.quantity ?? null;
+
   return {
     id,
     COD_ALFA: r.COD_ALFA ?? r.cod_alfa ?? "",
-    PRECIO: r.PRECIO ?? r.precio ?? r.price ?? 0,
-    CANTIDAD: r.CANTIDAD ?? r.cantidad ?? r.quantity ?? 0,
+    PRECIO: parseNumberAR(precioRaw),     // ✅ número (o null)
+    CANTIDAD: parseNumberAR(cantRaw),     // ✅ número (o null)
     proveedor: r.proveedor ?? r.PROVEEDOR ?? "",
     nombre: r.nombre ?? r.NOMBRE ?? r["RAZON SOCIAL"] ?? r.RAZON_SOCIAL ?? r.razon_social ?? "",
   };
@@ -68,13 +74,16 @@ function normalizeResumenRow(r, id) {
     r.NOMBRE ??
     "";
 
+  const cantTotalRaw = r.CANTIDAD_TOTAL ?? r.cantidad_total ?? null;
+  const stUsdRaw = r.ST_USD ?? r.st_usd ?? null;
+
   return {
     id,
     PROVEEDOR: r.PROVEEDOR ?? r.proveedor ?? "",
     "RAZON SOCIAL": razon,
     ITEMS: r.ITEMS ?? r.items ?? 0,
-    CANTIDAD_TOTAL: r.CANTIDAD_TOTAL ?? r.cantidad_total ?? 0,
-    ST_USD: r.ST_USD ?? r.st_usd ?? 0,
+    CANTIDAD_TOTAL: parseNumberAR(cantTotalRaw), // ✅ número (o null)
+    ST_USD: parseNumberAR(stUsdRaw),             // ✅ número (o null)
   };
 }
 
@@ -145,7 +154,6 @@ export default function NuevoPedido() {
     }
   }
 
-  // ✅ FIX definitivo: valueGetter evita que el DataGrid pase undefined al formatter (que termina como 0)
   const mergedCols = [
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 130 },
     {
@@ -153,16 +161,16 @@ export default function NuevoPedido() {
       headerName: "PRECIO",
       flex: 1,
       minWidth: 120,
-      valueGetter: (p) => p.row?.PRECIO ?? 0,
-      valueFormatter: (p) => toMoney(p.value),
+      valueGetter: (p) => p.row?.PRECIO ?? null,
+      valueFormatter: (p) => (p.value === null ? "" : toMoney(p.value)),
     },
     {
       field: "CANTIDAD",
       headerName: "CANTIDAD",
       flex: 1,
       minWidth: 120,
-      valueGetter: (p) => p.row?.CANTIDAD ?? 0,
-      valueFormatter: (p) => toInt(p.value),
+      valueGetter: (p) => p.row?.CANTIDAD ?? null,
+      valueFormatter: (p) => (p.value === null ? "" : toInt(p.value)),
     },
     { field: "proveedor", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "nombre", headerName: "NOMBRE", flex: 2, minWidth: 240 },
@@ -177,16 +185,16 @@ export default function NuevoPedido() {
       headerName: "CANTIDAD_TOTAL",
       flex: 1,
       minWidth: 160,
-      valueGetter: (p) => p.row?.["CANTIDAD_TOTAL"] ?? 0,
-      valueFormatter: (p) => toInt(p.value),
+      valueGetter: (p) => p.row?.CANTIDAD_TOTAL ?? null,
+      valueFormatter: (p) => (p.value === null ? "" : toInt(p.value)),
     },
     {
       field: "ST_USD",
       headerName: "ST_USD",
       flex: 1,
       minWidth: 140,
-      valueGetter: (p) => p.row?.ST_USD ?? 0,
-      valueFormatter: (p) => toMoney(p.value),
+      valueGetter: (p) => p.row?.ST_USD ?? null,
+      valueFormatter: (p) => (p.value === null ? "" : toMoney(p.value)),
     },
   ];
 
@@ -196,7 +204,8 @@ export default function NuevoPedido() {
         <Alert severity="info" sx={{ mt: 2 }}>
           {UI_BUILD}
         </Alert>
-        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2} alignItems="center">
+
+        <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2} alignItems="center" mt={2}>
           <TextField
             label="Usuario"
             value={user}
