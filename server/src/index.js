@@ -32,10 +32,37 @@ function genNumero(pref = "COMEX") {
 }
 
 function normalizeCols(row) {
-  // lower + trim keys
   const out = {};
   for (const [k, v] of Object.entries(row)) out[String(k).trim().toLowerCase()] = v;
   return out;
+}
+
+// --- FIX backend: soporta "9,81", "1.234,56", "$ 9.811,93", etc. ---
+function parseNumberAR(v) {
+  if (v === null || v === undefined) return NaN;
+  if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
+
+  const s = String(v).trim();
+  if (!s) return NaN;
+
+  const clean = s.replace(/[^\d.,-]/g, "");
+
+  // 1.234,56 -> 1234.56
+  if (clean.includes(",") && clean.includes(".")) {
+    const normalized = clean.replace(/\./g, "").replace(",", ".");
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  // 123,45 -> 123.45
+  if (clean.includes(",") && !clean.includes(".")) {
+    const n = Number(clean.replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  // 1234.56 o 1234
+  const n = Number(clean);
+  return Number.isFinite(n) ? n : NaN;
 }
 
 function parseExcel(buffer) {
@@ -56,8 +83,8 @@ function parseExcel(buffer) {
   const parsed = [];
   for (const r of rows) {
     const cod = String(r.cod_alfa ?? "").trim();
-    const price = Number(r.price);
-    const qty = Number(r.quantity);
+    const price = parseNumberAR(r.price);
+    const qty = parseNumberAR(r.quantity);
 
     parsed.push({
       cod_alfa: cod,
@@ -66,17 +93,23 @@ function parseExcel(buffer) {
     });
   }
 
-  const bad = parsed.filter(
-    (r) =>
-      !r.cod_alfa ||
-      !Number.isFinite(r.price) ||
-      !Number.isFinite(r.quantity) ||
-      r.price <= 0 ||
-      r.quantity <= 0
-  );
+  const bad = parsed
+    .map((r, idx) => ({ ...r, _row: idx + 2 })) // +2 si fila 1 es header
+    .filter(
+      (r) =>
+        !r.cod_alfa ||
+        !Number.isFinite(r.price) ||
+        !Number.isFinite(r.quantity) ||
+        r.price <= 0 ||
+        r.quantity <= 0
+    );
 
   if (bad.length) {
-    return { ok: false, error: "Hay valores inválidos (price/quantity deben ser numéricos y > 0).", bad };
+    return {
+      ok: false,
+      error: "Hay valores inválidos (price/quantity deben ser numéricos y > 0).",
+      bad,
+    };
   }
 
   return { ok: true, rows: parsed };
@@ -215,7 +248,7 @@ app.post("/api/pedidos/:pedido/estado", async (req, res) => {
   }
 });
 
-// Preview (equivalente a la validación + merge articulos + resumen)
+// Preview
 app.post("/api/preview", upload.single("file"), async (req, res) => {
   if (!req.file?.buffer) return res.status(400).json({ error: "Falta archivo .xlsx" });
 
@@ -242,7 +275,6 @@ app.post("/api/preview", upload.single("file"), async (req, res) => {
 
     const sin = merged.filter((m) => m.proveedor == null);
 
-    // resumen por proveedor/razon social
     const byKey = new Map();
     for (const m of merged) {
       const k = `${m.proveedor ?? "NULL"}|${m.nombre ?? ""}`;
@@ -269,7 +301,7 @@ app.post("/api/preview", upload.single("file"), async (req, res) => {
   }
 });
 
-// Generar pedidos (equivalente al botón "Generar en vicomx")
+// Generate
 app.post("/api/generate", upload.single("file"), async (req, res) => {
   const user_email = String(req.body.user_email ?? "").trim();
   if (!user_email) return res.status(400).json({ error: "Ingresá el usuario antes de confirmar." });
@@ -309,7 +341,6 @@ app.post("/api/generate", upload.single("file"), async (req, res) => {
     const estadoInicial = await getEstadoTextoPorId(conn, DEFAULT_ESTADO_ID);
     const tsNow = nowArSql();
 
-    // group by CLIENTE + RAZON SOCIAL
     const groups = new Map();
     for (const m of merged) {
       const key = `${m.CLIENTE}|${m["RAZON SOCIAL"]}`;
@@ -325,7 +356,6 @@ app.post("/api/generate", upload.single("file"), async (req, res) => {
       const cli = Number(cliStr);
       const numero = genNumero(`COMEX-P${cli}`);
 
-      // insert lines with ITEM autoincrement in-memory (igual que Python)
       let item = 1;
       for (const ln of lines) {
         await conn.query(SQL.insert_lines, [
