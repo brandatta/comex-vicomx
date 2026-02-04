@@ -4,9 +4,10 @@ import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
 
-const UI_BUILD = "UI_BUILD_2026-02-04_02";
+const UI_BUILD = "UI_BUILD_2026-02-04_03";
 
-// ✅ parse robusto AR: devuelve null si no puede parsear (evita 0 fantasma)
+// Soporta: "9,81", "1.234,56", "$ 9.811,93", "21.58", etc.
+// Devuelve: number | null
 function parseNumberAR(v) {
   if (v === null || v === undefined) return null;
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
@@ -35,22 +36,20 @@ function parseNumberAR(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function toMoney(n) {
-  const x = parseNumberAR(n);
-  if (x === null) return "-";
+function fmtMoney(n) {
+  if (n === null || n === undefined) return "";
+  const x = typeof n === "number" ? n : parseNumberAR(n);
+  if (x === null) return "";
   return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function toInt(n) {
-  const x = parseNumberAR(n);
-  if (x === null) return "-";
+function fmtInt(n) {
+  if (n === null || n === undefined) return "";
+  const x = typeof n === "number" ? n : parseNumberAR(n);
+  if (x === null) return "";
   return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-/**
- * Normaliza nombres de campos del backend/excel y fuerza conversión a número.
- * ✅ Si ya viene number, no lo re-parsea (evita quedar en null por parse redundante).
- */
 function normalizeMergedRow(r, id) {
   const precioRaw = r.PRECIO ?? r.precio ?? r.price ?? null;
   const cantRaw = r.CANTIDAD ?? r.cantidad ?? r.quantity ?? null;
@@ -61,8 +60,9 @@ function normalizeMergedRow(r, id) {
   return {
     id,
     COD_ALFA: r.COD_ALFA ?? r.cod_alfa ?? "",
-    PRECIO: precioNum, // number|null
-    CANTIDAD: cantNum, // number|null
+    // guardo números ya parseados (o null)
+    PRECIO: precioNum,
+    CANTIDAD: cantNum,
     proveedor: r.proveedor ?? r.PROVEEDOR ?? "",
     nombre: r.nombre ?? r.NOMBRE ?? r["RAZON SOCIAL"] ?? r.RAZON_SOCIAL ?? r.razon_social ?? "",
   };
@@ -88,8 +88,8 @@ function normalizeResumenRow(r, id) {
     PROVEEDOR: r.PROVEEDOR ?? r.proveedor ?? "",
     "RAZON SOCIAL": razon,
     ITEMS: r.ITEMS ?? r.items ?? 0,
-    CANTIDAD_TOTAL: cantTotalNum, // number|null
-    ST_USD: stUsdNum,             // number|null
+    CANTIDAD_TOTAL: cantTotalNum,
+    ST_USD: stUsdNum,
   };
 }
 
@@ -103,7 +103,6 @@ export default function NuevoPedido() {
   const [success, setSuccess] = React.useState("");
   const [created, setCreated] = React.useState([]);
 
-  // DENSE UI
   const denseTextFieldSx = {
     "& .MuiInputBase-root": { height: 40 },
     "& .MuiInputBase-input": { py: 0.5 },
@@ -126,12 +125,8 @@ export default function NuevoPedido() {
       setLoading(true);
       const data = await previewExcel(f);
 
-      // ✅ DEBUG (temporal): ver exactamente qué llega del backend y cómo lo normalizamos
+      // Debug (temporal): si vuelve a romper, esto te deja el rastro
       console.log("PREVIEW raw merged[0]:", data?.merged?.[0]);
-      console.log("PREVIEW raw types:", {
-        precio: typeof data?.merged?.[0]?.PRECIO,
-        cantidad: typeof data?.merged?.[0]?.CANTIDAD,
-      });
       console.log("PREVIEW normalized[0]:", normalizeMergedRow(data?.merged?.[0] || {}, 0));
 
       setPreview(data);
@@ -169,6 +164,7 @@ export default function NuevoPedido() {
     }
   }
 
+  // ✅ renderCell: evita completamente el problema de p.value / valueFormatter
   const mergedCols = [
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 130 },
     {
@@ -176,16 +172,16 @@ export default function NuevoPedido() {
       headerName: "PRECIO",
       flex: 1,
       minWidth: 120,
-      valueGetter: (p) => p.row?.PRECIO ?? null,
-      valueFormatter: (p) => (p.value === null ? "-" : toMoney(p.value)),
+      renderCell: (params) => fmtMoney(params.row?.PRECIO),
+      sortComparator: (a, b) => (Number(a ?? -1) || -1) - (Number(b ?? -1) || -1),
     },
     {
       field: "CANTIDAD",
       headerName: "CANTIDAD",
       flex: 1,
       minWidth: 120,
-      valueGetter: (p) => p.row?.CANTIDAD ?? null,
-      valueFormatter: (p) => (p.value === null ? "-" : toInt(p.value)),
+      renderCell: (params) => fmtInt(params.row?.CANTIDAD),
+      sortComparator: (a, b) => (Number(a ?? -1) || -1) - (Number(b ?? -1) || -1),
     },
     { field: "proveedor", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "nombre", headerName: "NOMBRE", flex: 2, minWidth: 240 },
@@ -200,16 +196,16 @@ export default function NuevoPedido() {
       headerName: "CANTIDAD_TOTAL",
       flex: 1,
       minWidth: 160,
-      valueGetter: (p) => p.row?.["CANTIDAD_TOTAL"] ?? null,
-      valueFormatter: (p) => (p.value === null ? "-" : toInt(p.value)),
+      renderCell: (params) => fmtInt(params.row?.["CANTIDAD_TOTAL"]),
+      sortComparator: (a, b) => (Number(a ?? -1) || -1) - (Number(b ?? -1) || -1),
     },
     {
       field: "ST_USD",
       headerName: "ST_USD",
       flex: 1,
       minWidth: 140,
-      valueGetter: (p) => p.row?.ST_USD ?? null,
-      valueFormatter: (p) => (p.value === null ? "-" : toMoney(p.value)),
+      renderCell: (params) => fmtMoney(params.row?.ST_USD),
+      sortComparator: (a, b) => (Number(a ?? -1) || -1) - (Number(b ?? -1) || -1),
     },
   ];
 
