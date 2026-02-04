@@ -1,9 +1,8 @@
 import React from "react";
-import { Box, Button, TextField, Alert, Typography } from "@mui/material";
+import { Box, Button, TextField, Alert, Typography, Snackbar } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
-
 
 // Soporta: "9,81", "1.234,56", "$ 9.811,93", "21.58", etc.
 // Devuelve: number | null
@@ -98,10 +97,15 @@ export default function NuevoPedido() {
   const [loading, setLoading] = React.useState(false);
 
   const [preview, setPreview] = React.useState(null); // {merged, sin, resumen}
-  const [error, setError] = React.useState("");
-  const [success, setSuccess] = React.useState("");
   const [created, setCreated] = React.useState([]);
 
+  // Snackbar abajo (confirmaciones)
+  const [snackOpen, setSnackOpen] = React.useState(false);
+  const [snackMsg, setSnackMsg] = React.useState("");
+  const [snackSeverity, setSnackSeverity] = React.useState("success"); // success | error | info | warning
+
+  // Error de validación "sin proveedor" se mantiene inline (no es "toast")
+  // Nota: el backend ya devuelve preview.sin cuando falta mapping.
   const denseTextFieldSx = {
     "& .MuiInputBase-root": { height: 40 },
     "& .MuiInputBase-input": { py: 0.5 },
@@ -114,9 +118,13 @@ export default function NuevoPedido() {
     "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
   };
 
+  const showSnack = React.useCallback((severity, msg) => {
+    setSnackSeverity(severity);
+    setSnackMsg(msg || "");
+    setSnackOpen(true);
+  }, []);
+
   async function onPreview(f) {
-    setError("");
-    setSuccess("");
     setCreated([]);
     setPreview(null);
 
@@ -124,40 +132,37 @@ export default function NuevoPedido() {
       setLoading(true);
       const data = await previewExcel(f);
 
-      // Debug (temporal): si vuelve a romper, esto te deja el rastro
+      // Debug (temporal)
       console.log("PREVIEW raw merged[0]:", data?.merged?.[0]);
       console.log("PREVIEW normalized[0]:", normalizeMergedRow(data?.merged?.[0] || {}, 0));
 
       setPreview(data);
+      showSnack("success", "Vista previa generada.");
     } catch (e) {
-      setError(e?.response?.data?.error || e?.response?.data?.message || e?.message || "Error");
+      showSnack("error", e?.response?.data?.error || e?.response?.data?.message || e?.message || "Error");
     } finally {
       setLoading(false);
     }
   }
 
   async function onGenerate() {
-    setError("");
-    setSuccess("");
-    setCreated([]);
-
     if (!user.trim()) {
-      setError("Ingresá el usuario antes de confirmar.");
+      showSnack("error", "Ingresá el usuario antes de confirmar.");
       return;
     }
     if (!file) {
-      setError("Seleccioná un archivo Excel.");
+      showSnack("error", "Seleccioná un archivo Excel.");
       return;
     }
 
     try {
       setLoading(true);
       const data = await generatePedidos(file, user.trim());
-      setSuccess(data.message || "Pedidos Generados y registrados en vicomx");
+      showSnack("success", data.message || "Pedidos Generados y registrados en vicomx");
       setCreated(data.created || []);
     } catch (e) {
       const payload = e?.response?.data;
-      setError(payload?.error || payload?.message || e?.message || "Error");
+      showSnack("error", payload?.error || payload?.message || e?.message || "Error");
     } finally {
       setLoading(false);
     }
@@ -246,11 +251,6 @@ export default function NuevoPedido() {
             />
           </Button>
         </Box>
-
-        <Box mt={2}>
-          {error ? <Alert severity="error">{error}</Alert> : null}
-          {success ? <Alert severity="success">{success}</Alert> : null}
-        </Box>
       </SectionCard>
 
       {preview?.sin?.length ? (
@@ -334,6 +334,19 @@ export default function NuevoPedido() {
           ) : null}
         </SectionCard>
       ) : null}
+
+      {/* ✅ Avisos de confirmación abajo */}
+      <Snackbar
+        open={snackOpen}
+        onClose={() => setSnackOpen(false)}
+        autoHideDuration={6000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert onClose={() => setSnackOpen(false)} severity={snackSeverity} sx={{ width: "100%" }}>
+          {snackMsg}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
+
