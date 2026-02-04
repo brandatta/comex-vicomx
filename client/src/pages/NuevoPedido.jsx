@@ -4,12 +4,38 @@ import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
 
+// --- FIX: soporta números como "9,81", "1.234,56", "$ 9.811,93", etc. ---
+function parseNumberAR(v) {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+
+  const s = String(v).trim();
+  if (!s) return 0;
+
+  const clean = s.replace(/[^\d.,-]/g, "");
+
+  if (clean.includes(",") && clean.includes(".")) {
+    const normalized = clean.replace(/\./g, "").replace(",", ".");
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  if (clean.includes(",") && !clean.includes(".")) {
+    const n = Number(clean.replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  const n = Number(clean);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function toMoney(n) {
-  const x = Number(n || 0);
+  const x = parseNumberAR(n);
   return x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
 function toInt(n) {
-  const x = Number(n || 0);
+  const x = parseNumberAR(n);
   return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
