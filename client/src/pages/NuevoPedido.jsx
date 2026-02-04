@@ -39,6 +39,40 @@ function toInt(n) {
   return x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
+/**
+ * Normaliza nombres de campos del backend/excel para que la grilla no muestre 0 por undefined.
+ * Esto corrige: PRECIO/CANTIDAD en UI pero backend devuelve price/quantity (o viceversa).
+ */
+function normalizeMergedRow(r, id) {
+  return {
+    id,
+    COD_ALFA: r.COD_ALFA ?? r.cod_alfa ?? "",
+    PRECIO: r.PRECIO ?? r.precio ?? r.price ?? 0,
+    CANTIDAD: r.CANTIDAD ?? r.cantidad ?? r.quantity ?? 0,
+    proveedor: r.proveedor ?? r.PROVEEDOR ?? "",
+    nombre: r.nombre ?? r.NOMBRE ?? r["RAZON SOCIAL"] ?? r.RAZON_SOCIAL ?? r.razon_social ?? "",
+  };
+}
+
+function normalizeResumenRow(r, id) {
+  const razon =
+    r["RAZON SOCIAL"] ??
+    r.RAZON_SOCIAL ??
+    r.razon_social ??
+    r.nombre ??
+    r.NOMBRE ??
+    "";
+
+  return {
+    id,
+    PROVEEDOR: r.PROVEEDOR ?? r.proveedor ?? "",
+    "RAZON SOCIAL": razon,
+    ITEMS: r.ITEMS ?? r.items ?? 0,
+    CANTIDAD_TOTAL: r.CANTIDAD_TOTAL ?? r.cantidad_total ?? 0,
+    ST_USD: r.ST_USD ?? r.st_usd ?? 0,
+  };
+}
+
 export default function NuevoPedido() {
   const [user, setUser] = React.useState("");
   const [file, setFile] = React.useState(null);
@@ -126,12 +160,7 @@ export default function NuevoPedido() {
     <Box>
       <SectionCard title="Carga de planilla" subtitle="Seleccioná el Excel y validamos columnas y valores.">
         <Box display="grid" gridTemplateColumns={{ xs: "1fr", md: "1fr 1fr" }} gap={2} alignItems="center">
-          <TextField
-            label="Usuario"
-            value={user}
-            onChange={(e) => setUser(e.target.value)}
-            sx={denseTextFieldSx}
-          />
+          <TextField label="Usuario" value={user} onChange={(e) => setUser(e.target.value)} sx={denseTextFieldSx} />
 
           <Button
             variant="outlined"
@@ -190,7 +219,7 @@ export default function NuevoPedido() {
             autoHeight
             rowHeight={38}
             sx={denseGridSx}
-            rows={preview.merged.map((r, i) => ({ id: i, ...r }))}
+            rows={preview.merged.map((r, i) => normalizeMergedRow(r, i))}
             columns={mergedCols}
             pageSizeOptions={[25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
@@ -219,7 +248,7 @@ export default function NuevoPedido() {
             autoHeight
             rowHeight={38}
             sx={denseGridSx}
-            rows={preview.resumen.map((r, i) => ({ id: i, ...r }))}
+            rows={preview.resumen.map((r, i) => normalizeResumenRow(r, i))}
             columns={resumenCols}
             pageSizeOptions={[25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
