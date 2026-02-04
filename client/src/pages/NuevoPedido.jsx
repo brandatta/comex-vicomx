@@ -4,8 +4,6 @@ import { DataGrid } from "@mui/x-data-grid";
 import SectionCard from "../components/SectionCard.jsx";
 import { previewExcel, generatePedidos } from "../api.js";
 
-const UI_BUILD = "UI_BUILD_2026-02-04_03";
-
 // Soporta: "9,81", "1.234,56", "$ 9.811,93", "21.58", etc.
 // Devuelve: number | null
 function parseNumberAR(v) {
