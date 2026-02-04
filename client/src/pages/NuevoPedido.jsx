@@ -177,14 +177,16 @@ export default function NuevoPedido() {
           title="Pedidos a Generar en vicomx"
           subtitle="Si está todo OK, generá los pedidos al final de la sección."
           footer={
-            <Button
-              variant="contained"
-              onClick={onGenerate}
-              disabled={loading || !file || !!preview?.sin?.length}
-              sx={denseButtonSx}
-            >
-              Generar en vicomx
-            </Button>
+            <Box display="flex" justifyContent="flex-end">
+              <Button
+                variant="contained"
+                onClick={onGenerate}
+                disabled={loading || !file || !!preview?.sin?.length}
+                sx={denseButtonSx}
+              >
+                Generar en vicomx
+              </Button>
+            </Box>
           }
         >
           <DataGrid
