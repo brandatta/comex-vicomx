@@ -143,10 +143,25 @@ export default function NuevoPedido() {
     }
   }
 
+  // ✅ FIX definitivo: valueGetter evita que el DataGrid pase undefined al formatter (que termina como 0)
   const mergedCols = [
     { field: "COD_ALFA", headerName: "COD_ALFA", flex: 1, minWidth: 130 },
-    { field: "PRECIO", headerName: "PRECIO", flex: 1, minWidth: 120, valueFormatter: (p) => toMoney(p.value) },
-    { field: "CANTIDAD", headerName: "CANTIDAD", flex: 1, minWidth: 120, valueFormatter: (p) => toInt(p.value) },
+    {
+      field: "PRECIO",
+      headerName: "PRECIO",
+      flex: 1,
+      minWidth: 120,
+      valueGetter: (p) => p.row?.PRECIO ?? 0,
+      valueFormatter: (p) => toMoney(p.value),
+    },
+    {
+      field: "CANTIDAD",
+      headerName: "CANTIDAD",
+      flex: 1,
+      minWidth: 120,
+      valueGetter: (p) => p.row?.CANTIDAD ?? 0,
+      valueFormatter: (p) => toInt(p.value),
+    },
     { field: "proveedor", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "nombre", headerName: "NOMBRE", flex: 2, minWidth: 240 },
   ];
@@ -155,8 +170,22 @@ export default function NuevoPedido() {
     { field: "PROVEEDOR", headerName: "PROVEEDOR", flex: 1, minWidth: 140 },
     { field: "RAZON SOCIAL", headerName: "RAZON SOCIAL", flex: 2, minWidth: 280 },
     { field: "ITEMS", headerName: "ITEMS", flex: 1, minWidth: 110 },
-    { field: "CANTIDAD_TOTAL", headerName: "CANTIDAD_TOTAL", flex: 1, minWidth: 160, valueFormatter: (p) => toInt(p.value) },
-    { field: "ST_USD", headerName: "ST_USD", flex: 1, minWidth: 140, valueFormatter: (p) => toMoney(p.value) },
+    {
+      field: "CANTIDAD_TOTAL",
+      headerName: "CANTIDAD_TOTAL",
+      flex: 1,
+      minWidth: 160,
+      valueGetter: (p) => p.row?.["CANTIDAD_TOTAL"] ?? 0,
+      valueFormatter: (p) => toInt(p.value),
+    },
+    {
+      field: "ST_USD",
+      headerName: "ST_USD",
+      flex: 1,
+      minWidth: 140,
+      valueGetter: (p) => p.row?.ST_USD ?? 0,
+      valueFormatter: (p) => toMoney(p.value),
+    },
   ];
 
   return (
